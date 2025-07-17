@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  actions: read
+  checks: write
+
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
@@ -100,15 +105,15 @@ jobs:
     - name: Rename DMG file with version
       run: |
         cd app/build/compose/binaries/main/dmg/
-        # 기존 DMG 파일을 찾아서 버전이 포함된 이름으로 변경
+        # Find and rename the existing DMG file with the version
         original_file=$(find . -name "*.dmg" -type f | head -n 1)
         if [ -n "$original_file" ]; then
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            # 태그에서 버전 추출: refs/tags/v1.0.0 -> v1-0-0
+            # Extract version from tag: refs/tags/v1.0.0 -> v1-0-0
             version=${GITHUB_REF#refs/tags/}
             formatted_version=$(echo "$version" | sed 's/\./-/g')
           else
-            # 태그가 아닌 경우 기본 버전 사용
+            # Use default version if not a tag
             formatted_version="v1-0-0"
           fi
           new_name="TalkToFigma-${formatted_version}.dmg"
@@ -177,7 +182,7 @@ jobs:
           formatted_version="v1-0-0"
         fi
         
-        # MSI 파일 이름 변경
+        # MSI file name change
         cd app/build/compose/binaries/main/msi/
         msi_file=$(find . -name "*.msi" -type f | head -n 1)
         if [ -n "$msi_file" ]; then
@@ -186,7 +191,7 @@ jobs:
           echo "Renamed MSI to: $new_msi"
         fi
         
-        # EXE 파일 이름 변경
+        # EXE file name change
         cd ../exe/
         exe_file=$(find . -name "*.exe" -type f | head -n 1)
         if [ -n "$exe_file" ]; then
@@ -204,7 +209,7 @@ jobs:
           app/build/compose/binaries/main/exe/
         retention-days: 30
 
-  # TODO: 나중에 사이닝 구현
+  # TODO
   # sign-and-release-mac:
   #   runs-on: macos-latest
   #   needs: package-mac
@@ -259,6 +264,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [package-mac, package-windows]
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      actions: read
     
     steps:
     - name: Checkout code
@@ -268,7 +276,7 @@ jobs:
       uses: actions/download-artifact@v4
       
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           macos-dmg/*.dmg
@@ -277,6 +285,8 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
+        make_latest: true
+        token: ${{ secrets.GITHUB_TOKEN }}
         body: |
           ## TalkToFigma Desktop Release
           
@@ -296,6 +306,4 @@ jobs:
           ### ⚠️ Important
           **macOS**: Currently not signed, so Gatekeeper warning may appear.
           - Right-click the app → "Open"
-          - Select "Open Anyway" in "System Settings > Security & Privacy"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          - Select "Open Anyway" in "System Settings > Security & Privacy" 
