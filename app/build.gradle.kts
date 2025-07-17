@@ -1,8 +1,8 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    kotlin("plugin.compose")
-    id("org.jetbrains.compose")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose)
 }
 
 group = "kr.co.metadata.mcp"
@@ -36,10 +36,10 @@ dependencies {
     implementation("io.modelcontextprotocol:kotlin-sdk:0.5.0")
     
     // JSON serialization (updated to latest stable version)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation(libs.kotlin.serialization.json)
     
     // Coroutines (updated to latest stable version)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation(libs.kotlinx.coroutines.core)
     
     // Logging with color and JSON support
     implementation("io.github.microutils:kotlin-logging:2.1.23")
