@@ -79,3 +79,11 @@ app/build/distributions/
 # JVM crash logs
 hs_err_pid*
 replay_pid*
+
+# Environment variables
+.envrc
+
+# Others
+/docs
+/scripts
+*.p12
