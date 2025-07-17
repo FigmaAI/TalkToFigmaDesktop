@@ -94,14 +94,37 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Create distributable
-      run: ./gradlew createDistributable --no-daemon
+    - name: Create DMG package
+      run: ./gradlew packageDmg --no-daemon
+      
+    - name: Rename DMG file with version
+      run: |
+        cd app/build/compose/binaries/main/dmg/
+        # 기존 DMG 파일을 찾아서 버전이 포함된 이름으로 변경
+        original_file=$(find . -name "*.dmg" -type f | head -n 1)
+        if [ -n "$original_file" ]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # 태그에서 버전 추출: refs/tags/v1.0.0 -> v1-0-0
+            version=${GITHUB_REF#refs/tags/}
+            formatted_version=$(echo "$version" | sed 's/\./-/g')
+          else
+            # 태그가 아닌 경우 기본 버전 사용
+            formatted_version="v1-0-0"
+          fi
+          new_name="TalkToFigma-${formatted_version}.dmg"
+          mv "$original_file" "$new_name"
+          echo "Renamed DMG from '$original_file' to '$new_name'"
+          ls -la
+        else
+          echo "No DMG file found!"
+          ls -la
+        fi
       
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: macos-distributable
-        path: app/build/compose/binaries/main/app/
+        name: macos-dmg
+        path: app/build/compose/binaries/main/dmg/
         retention-days: 30
 
   package-windows:
@@ -143,6 +166,34 @@ jobs:
       
     - name: Build EXE package
       run: ./gradlew packageExe --no-daemon
+      
+    - name: Rename Windows packages with version
+      shell: bash
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          version=${GITHUB_REF#refs/tags/}
+          formatted_version=$(echo "$version" | sed 's/\./-/g')
+        else
+          formatted_version="v1-0-0"
+        fi
+        
+        # MSI 파일 이름 변경
+        cd app/build/compose/binaries/main/msi/
+        msi_file=$(find . -name "*.msi" -type f | head -n 1)
+        if [ -n "$msi_file" ]; then
+          new_msi="TalkToFigma-${formatted_version}.msi"
+          mv "$msi_file" "$new_msi"
+          echo "Renamed MSI to: $new_msi"
+        fi
+        
+        # EXE 파일 이름 변경
+        cd ../exe/
+        exe_file=$(find . -name "*.exe" -type f | head -n 1)
+        if [ -n "$exe_file" ]; then
+          new_exe="TalkToFigma-${formatted_version}.exe"
+          mv "$exe_file" "$new_exe"
+          echo "Renamed EXE to: $new_exe"
+        fi
       
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
@@ -216,18 +267,11 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       
-    - name: Prepare macOS app bundle for release
-      run: |
-        # macOS 앱 번들을 ZIP으로 압축
-        cd macos-distributable
-        zip -r ../TalkToFigmaDesktop-macos.zip *
-        cd ..
-      
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          TalkToFigmaDesktop-macos.zip
+          macos-dmg/*.dmg
           windows-packages/**/*.msi
           windows-packages/**/*.exe
         draft: false
@@ -236,14 +280,22 @@ jobs:
         body: |
           ## TalkToFigma Desktop Release
           
-          ### 다운로드
-          - **macOS**: TalkToFigmaDesktop-macos.zip (앱 번들, 사이닝 없음)
-          - **Windows**: .msi 또는 .exe 파일 선택
+          ### 📦 Download
+          - **macOS**: `TalkToFigma-${{ github.ref_name }}.dmg` (App bundle, no signing)
+          - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe` 
           
-          ### 설치 방법
-          **macOS**: ZIP 파일을 압축 해제하고 Applications 폴더로 이동
-          **Windows**: MSI 파일을 실행하여 설치
+          ### 🚀 How to install
+          **macOS**: 
+          1. Double-click the DMG file to mount
+          2. Drag and drop the TalkToFigma Desktop app to the Applications folder
           
-          > 참고: macOS 버전은 현재 사이닝되지 않았으므로 Gatekeeper 경고가 나타날 수 있습니다.
+          **Windows**: 
+          - **MSI**: Recommended method, official installation on the system
+          - **EXE**: Portable executable file
+          
+          ### ⚠️ Important
+          **macOS**: Currently not signed, so Gatekeeper warning may appear.
+          - Right-click the app → "Open"
+          - Select "Open Anyway" in "System Settings > Security & Privacy"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
