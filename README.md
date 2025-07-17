@@ -134,6 +134,9 @@ You'll see status indicators:
 ```json
 {
   "mcpServers": {
+    "Figma": {
+      "url": "http://127.0.0.1:3845/sse"
+    },
     "TalkToFigmaDesktop": {
       "url": "http://127.0.0.1:3056/sse"
     }
