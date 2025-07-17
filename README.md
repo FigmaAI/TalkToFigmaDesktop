@@ -35,7 +35,7 @@
 
 ## 🙏 Acknowledgments to Original Project
 
-> [!INFO]
+> [!TIP]
 > This project is a Kotlin Compose Desktop application ported from [@sonnylazuardi](https://github.com/sonnylazuardi)'s [**cursor-talk-to-figma-mcp**](https://github.com/sonnylazuardi/cursor-talk-to-figma-mcp) project, enabling direct WebSocket and MCP server capabilities. We deeply appreciate the innovative ideas and implementation of the original project.
 
 ## Features
@@ -62,8 +62,9 @@
    - Drag TalkToFigma Desktop to your Applications folder
 
 2. **First Launch Security Guide**
-   
-   When you first try to open TalkToFigma Desktop, you may see security warnings. This is normal for applications not distributed through the App Store.
+
+> [!WARNING]
+> **macOS Security Notice**: When you first try to open TalkToFigma Desktop, you may see security warnings. This is normal for applications not distributed through the App Store. **Do not click "Move to Trash"** - follow the steps below instead.
 
    <details>
    <summary>📱 Step-by-step security bypass guide</summary>
@@ -86,12 +87,8 @@
 
    </details>
 
-   <details>
-   <summary><strong>Why these warnings?</strong></summary>
-   
-   These security messages appear because TalkToFigma Desktop is currently distributed independently and not through Apple's App Store. The application is safe to use, and following the steps above will create a permanent security exception.
-   
-   </details>
+> [!NOTE]
+> These security messages appear because TalkToFigma Desktop is currently distributed independently and not through Apple's App Store. The application is safe to use, and following the steps above will create a permanent security exception.
 
 ### Windows Installation
 
@@ -100,10 +97,8 @@
    - Follow the installation wizard
    - Launch from Start menu or desktop shortcut
 
-2. **Security Considerations**
-   - Windows Defender may show a SmartScreen warning
-   - Click "More info" → "Run anyway" to proceed
-   - The application will install normally
+> [!TIP]
+> **Windows SmartScreen**: If Windows Defender shows a SmartScreen warning, click "More info" → "Run anyway" to proceed. This is normal for new applications not yet widely recognized by Microsoft's reputation system.
 
 ## Getting Started
 
@@ -119,6 +114,9 @@ The application will appear in your system tray with a server icon.
 Right-click the system tray icon and select:
 - **"Start All Services"** - Starts both WebSocket (port 3055) and MCP (port 3056) servers
 - Or start them individually if needed
+
+> [!WARNING]
+> **Port Requirements**: TalkToFigma Desktop requires ports **3055** (WebSocket) and **3056** (MCP) to be available. If you have other applications using these ports, you may need to stop them first or use "Kill All Servers" from the tray menu.
 
 You'll see status indicators:
 - <img src="./app/src/main/resources/active_image.png" width="20" height="20" style="background-color: #000000;">: Servers running
@@ -147,6 +145,9 @@ You'll see status indicators:
 
 Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.figma.com/community/plugin/1485687494525374295/cursor-talk-to-figma-mcp-plugin)
 
+> [!TIP]
+> **Plugin Connection**: The Figma plugin will automatically attempt to connect to your desktop app on port 3055. Make sure TalkToFigma Desktop is running with servers started before launching the plugin.
+
 ### 5. Connect and Use
 
 1. **In Figma**: Run the plugin and ensure it connects to the desktop app
@@ -156,12 +157,18 @@ Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.f
 
 ## Troubleshooting
 
+> [!NOTE]
+> **Quick Diagnosis**: Most issues can be resolved by checking the application logs. Right-click the tray icon → "View Logs" to see detailed error information.
+
 ### Common Issues
 
 **🔌 Connection Problems**
 - Ensure both servers are running 
 - Check that ports 3055 and 3056 are not blocked by firewall
 - Try "Kill All Servers" from tray menu and restart
+
+> [!TIP]
+> **Firewall Issues**: If your firewall is blocking connections, add exceptions for ports 3055 and 3056, or temporarily disable the firewall to test connectivity.
 
 **🛡️ Security Warnings** 
 - Follow the platform-specific security bypass guides above
@@ -171,6 +178,11 @@ Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.f
 - The app automatically handles port conflicts with enhanced retry logic
 - If issues persist, manually kill processes using ports 3055/3056
 - Check logs via "View Logs" in the tray menu
+
+> [!WARNING]
+> **Force Kill Ports**: If automatic port management fails, you can manually kill processes using these commands:
+> - **macOS/Linux**: `lsof -ti:3055 | xargs kill -9` and `lsof -ti:3056 | xargs kill -9`
+> - **Windows**: `netstat -ano | findstr :3055` then `taskkill /PID <PID> /F`
 
 ### Logs and Debugging
 
@@ -186,6 +198,9 @@ Access detailed logs via:
 - JDK 21+
 - Kotlin 2.0.0+
 - Gradle 8.12+
+
+> [!TIP]
+> **Development Setup**: For the best development experience, use IntelliJ IDEA with the Kotlin plugin. The project is configured with Compose Desktop and includes hot-reload capabilities for UI development.
 
 ### Build Commands
 
@@ -203,6 +218,9 @@ cd TalkToFigmaDesktop
 # Create platform distributables
 ./gradlew :app:packageDistributionForCurrentOS
 ```
+
+> [!NOTE]
+> **Release Builds**: Tagged releases (e.g., `v1.0.0`) trigger automatic builds via GitHub Actions, creating signed distributables for macOS and Windows. See `.github/workflows/build.yml` for details.
 
 
 ## Original Project
@@ -224,6 +242,9 @@ Both implementations share the same core MCP protocol and Figma plugin compatibi
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+> [!TIP]
+> **First Time Contributors**: Start by checking our [Issues](https://github.com/FigmaAI/TalkToFigmaDesktop/issues) page for beginner-friendly tasks labeled with `good first issue`. We also appreciate documentation improvements and bug reports!
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
