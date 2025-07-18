@@ -78,6 +78,12 @@ local.properties
 app/build/compose/
 app/build/distributions/
 
+# Self-contained app packages
+*.dmg
+*.msi
+*.exe
+*.app
+
 # JVM crash logs
 hs_err_pid*
 replay_pid*
