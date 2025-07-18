@@ -67,7 +67,12 @@ compose.desktop {
     application {
         mainClass = "kr.co.metadata.mcp.AppKt"
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Pkg, // For App Store
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
+            )
             packageName = "TalkToFigmaDesktop"
             packageVersion = project.version.toString()
             
@@ -79,9 +84,29 @@ compose.desktop {
                 dockName = "TalkToFigma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
                 jvmArgs("-Dapple.awt.enableTemplateImages=true")
-                // Additional macOS packaging options for better user experience
+
                 signing {
-                    sign.set(false) // Disable signing for now (can be enabled with proper certificates)
+                    sign.set(true)
+                    identity.set(System.getenv("SIGNING_IDENTITY"))
+                }
+
+                if (System.getenv("BUILD_FOR_APP_STORE") == "true") {
+                    // App Store용 프로비저닝 프로필 설정 (프로젝트 루트에 위치해야 함)
+                    provisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
+                    runtimeProvisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
+
+                    // App Store용 entitlements 파일 설정 (프로젝트 루트에 위치해야 함)
+                    entitlementsFile.set(project.rootProject.file("entitlements-appstore.plist"))
+                } else {
+                    // Developer ID 배포용 entitlements 파일 설정 (프로젝트 루트에 위치해야 함)
+                    entitlementsFile.set(project.rootProject.file("entitlements.plist"))
+
+                    // Developer ID 배포 시에만 Notarization 설정 필요
+                    notarization {
+                        appleID.set(System.getenv("APPLE_ID"))
+                        password.set(System.getenv("APPLE_PASSWORD")) // App-Specific Password
+                        teamID.set(System.getenv("APPLE_TEAM_ID"))
+                    }
                 }
             }
 
