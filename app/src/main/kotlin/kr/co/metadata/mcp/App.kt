@@ -43,13 +43,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.ui.platform.LocalClipboardManager
+import kr.co.metadata.mcp.ui.TutorialDialog
 
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.prefs.Preferences
 
 
 private val logger = KotlinLogging.logger {}
@@ -705,18 +708,34 @@ What actually happened?
     }
 }
 
+
+
 fun main() {
     application {
         var websocketServerRunning by remember { mutableStateOf(false) }
         var mcpServerRunning by remember { mutableStateOf(false) }
         var showMcpConfigDialog by remember { mutableStateOf(false) }
         var showLogViewerDialog by remember { mutableStateOf(false) }
+        var showTutorialDialog by remember { mutableStateOf(false) }
         val trayState = rememberTrayState()
         val scope = rememberCoroutineScope()
         
-        // Log application startup
+        // Check if it's first time launch and show tutorial
         LaunchedEffect(Unit) {
             logger.info { "TalkToFigma Desktop application started" }
+            
+            try {
+                val prefs = Preferences.userNodeForPackage(this@application::class.java)
+                val hasShownTutorial = prefs.getBoolean("tutorial_shown", false)
+                
+                if (!hasShownTutorial) {
+                    logger.info { "First time launch detected - showing tutorial" }
+                    showTutorialDialog = true
+                    prefs.putBoolean("tutorial_shown", true)
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "Failed to check tutorial preferences" }
+            }
         }
         
         // Initialize server components
@@ -748,6 +767,11 @@ fun main() {
                 // View Logs
                 Item("View Logs", onClick = {
                     showLogViewerDialog = true
+                })
+
+                // Tutorial
+                Item("Tutorial", onClick = {
+                    showTutorialDialog = true
                 })
                 
                 Separator()
@@ -949,6 +973,12 @@ fun main() {
         LogViewerDialog(
             isVisible = showLogViewerDialog,
             onDismiss = { showLogViewerDialog = false }
+        )
+
+        // Tutorial Dialog
+        TutorialDialog(
+            isVisible = showTutorialDialog,
+            onDismiss = { showTutorialDialog = false }
         )
     }
 } 
