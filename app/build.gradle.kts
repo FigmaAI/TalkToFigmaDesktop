@@ -70,18 +70,31 @@ compose.desktop {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "TalkToFigmaDesktop"
             packageVersion = project.version.toString()
+            
+            // Include JRE for self-contained application
+            includeAllModules = true
 
             macOS {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
                 dockName = "TalkToFigma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
                 jvmArgs("-Dapple.awt.enableTemplateImages=true")
+                // Additional macOS packaging options for better user experience
+                signing {
+                    sign.set(false) // Disable signing for now (can be enabled with proper certificates)
+                }
             }
 
             windows {
                 menuGroup = "TalkToFigmaDesktop"
                 upgradeUuid = "FCDFDD35-04EB-4698-89F5-3CCAB516B324"
                 iconFile.set(project.file("src/main/resources/icon.ico"))
+                // Console app (set to false to hide console window)
+                console = false
+            }
+            
+            linux {
+                iconFile.set(project.file("src/main/resources/icon.png"))
             }
         }
     }
