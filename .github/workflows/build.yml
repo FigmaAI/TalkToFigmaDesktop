@@ -99,24 +99,50 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
+    - name: Import signing certificate and set up environment
+      if: startsWith(github.ref, 'refs/tags/v')
+      env:
+        SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
+        SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+      run: |
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        security create-keychain -p "$SIGNING_CERTIFICATE_PASSWORD" $KEYCHAIN_PATH
+        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+        security unlock-keychain -p "$SIGNING_CERTIFICATE_PASSWORD" $KEYCHAIN_PATH
+        
+        echo $SIGNING_CERTIFICATE_BASE64 | base64 --decode -o $RUNNER_TEMP/certificate.p12
+        security import $RUNNER_TEMP/certificate.p12 -k $KEYCHAIN_PATH -P "$SIGNING_CERTIFICATE_PASSWORD" -A
+        
+        security list-keychains -d user -s $KEYCHAIN_PATH
+        
+        echo "APPLE_ID=${APPLE_ID}" >> $GITHUB_ENV
+        echo "APPLE_PASSWORD=${APPLE_PASSWORD}" >> $GITHUB_ENV
+        echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> $GITHUB_ENV
+        echo "SIGNING_IDENTITY=${SIGNING_IDENTITY}" >> $GITHUB_ENV
+      
     - name: Create DMG package
       run: ./gradlew packageDmg --no-daemon
+      
+    - name: Clean up keychain
+      if: always() && startsWith(github.ref, 'refs/tags/v')
+      run: |
+        security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
       
     - name: Rename DMG file with version
       run: |
         cd app/build/compose/binaries/main/dmg/
-        # Find and rename the existing DMG file with the version
         original_file=$(find . -name "*.dmg" -type f | head -n 1)
         if [ -n "$original_file" ]; then
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            # Extract version from tag: refs/tags/v1.0.0 -> v1-0-0
             version=${GITHUB_REF#refs/tags/}
-            formatted_version=$(echo "$version" | sed 's/\./-/g')
           else
-            # Use default version if not a tag
-            formatted_version="v1-0-0"
+            version="v1.0.0-unsigned"
           fi
-          new_name="TalkToFigma-${formatted_version}.dmg"
+          new_name="TalkToFigma-${version}.dmg"
           mv "$original_file" "$new_name"
           echo "Renamed DMG from '$original_file' to '$new_name'"
           ls -la
@@ -177,16 +203,15 @@ jobs:
       run: |
         if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           version=${GITHUB_REF#refs/tags/}
-          formatted_version=$(echo "$version" | sed 's/\./-/g')
         else
-          formatted_version="v1-0-0"
+          version="v1.0.0"
         fi
         
         # MSI file name change
         cd app/build/compose/binaries/main/msi/
         msi_file=$(find . -name "*.msi" -type f | head -n 1)
         if [ -n "$msi_file" ]; then
-          new_msi="TalkToFigma-${formatted_version}.msi"
+          new_msi="TalkToFigma-${version}.msi"
           mv "$msi_file" "$new_msi"
           echo "Renamed MSI to: $new_msi"
         fi
@@ -195,7 +220,7 @@ jobs:
         cd ../exe/
         exe_file=$(find . -name "*.exe" -type f | head -n 1)
         if [ -n "$exe_file" ]; then
-          new_exe="TalkToFigma-${formatted_version}.exe"
+          new_exe="TalkToFigma-${version}.exe"
           mv "$exe_file" "$new_exe"
           echo "Renamed EXE to: $new_exe"
         fi
@@ -209,56 +234,8 @@ jobs:
           app/build/compose/binaries/main/exe/
         retention-days: 30
 
-  # TODO
-  # sign-and-release-mac:
-  #   runs-on: macos-latest
-  #   needs: package-mac
-  #   if: startsWith(github.ref, 'refs/tags/v')
-  #   
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v4
-  #     
-  #   - name: Set up Amazon Corretto JDK 21
-  #     uses: actions/setup-java@v4
-  #     with:
-  #       distribution: 'corretto'
-  #       java-version: '21'
-  #       
-  #   - name: Set version from tag
-  #     run: |
-  #       TAG_VERSION=${GITHUB_REF#refs/tags/v}
-  #       echo "Building version: $TAG_VERSION"
-  #       # Update version in build.gradle.kts
-  #       sed -i '' "s/version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
-  #       
-  #   - name: Download macOS artifacts
-  #     uses: actions/download-artifact@v4
-  #     with:
-  #       name: macos-distributable
-  #       path: app/build/compose/binaries/main/app/
-  #       
-  #   - name: Set up signing environment
-  #     env:
-  #       APPLE_ID: ${{ secrets.APPLE_ID }}
-  #       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-  #       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-  #       SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
-  #     run: |
-  #       echo "Setting up signing environment..."
-  #       # Add signing setup here if needed
-  #       
-  #   - name: Build and sign DMG
-  #     run: |
-  #       chmod +x build-mac.sh
-  #       ./build-mac.sh
-  #       
-  #   - name: Upload signed DMG
-  #     uses: actions/upload-artifact@v4
-  #     with:
-  #       name: signed-dmg
-  #       path: dist/*.dmg
-  #       retention-days: 90
+  # sign-and-release-mac job is now integrated into package-mac
+  # The old job has been removed to avoid confusion.
 
   create-release:
     runs-on: ubuntu-latest
@@ -291,7 +268,7 @@ jobs:
           ## TalkToFigma Desktop Release
           
           ### 📦 Download
-          - **macOS**: `TalkToFigma-${{ github.ref_name }}.dmg` (App bundle, no signing)
+          - **macOS**: `TalkToFigma-${{ github.ref_name }}.dmg` (Signed and Notarized for tagged releases)
           - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe` 
           
           ### 🚀 How to install
@@ -304,6 +281,6 @@ jobs:
           - **EXE**: Portable executable file
           
           ### ⚠️ Important
-          **macOS**: Currently not signed, so Gatekeeper warning may appear.
+          **macOS**: For builds from the 'main' branch (not releases), the app is not signed and Gatekeeper may show a warning.
           - Right-click the app → "Open"
           - Select "Open Anyway" in "System Settings > Security & Privacy" 
