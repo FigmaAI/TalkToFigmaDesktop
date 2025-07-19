@@ -3,9 +3,10 @@
     <!-- Colorful Console appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %magenta([%thread]) %cyan(%-40.40logger{40}) %yellow(|) %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %-40.40logger{40} | %msg%n</pattern>
         </encoder>
-        <withJansi>true</withJansi>
+        <!-- removed jansi library completely (solved signing issue) -->
+        <!-- <withJansi>true</withJansi> -->
     </appender>
 
     <!-- JSON Console appender for structured logging -->
