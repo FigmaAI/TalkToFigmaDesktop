@@ -73,7 +73,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "TalkToFigmaDesktop"
+            packageName = "TalkToFigma Desktop"
             packageVersion = project.version.toString()
             
             // Include JRE for self-contained application
@@ -83,25 +83,35 @@ compose.desktop {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
                 dockName = "TalkToFigma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
-                jvmArgs("-Dapple.awt.enableTemplateImages=true")
+                
+                // Optimized JVM arguments
+                jvmArgs(
+                    "-Dapple.awt.enableTemplateImages=true",
+                    "-Xms64m",
+                    "-Xmx512m",
+                    "-XX:+UseG1GC",
+                    "-XX:+UseStringDeduplication"
+                )
 
                 signing {
                     sign.set(true)
-                    identity.set(System.getenv("SIGNING_IDENTITY"))
+                    // Signing Identity will be set in the if-else block below
                 }
 
                 if (System.getenv("BUILD_FOR_APP_STORE") == "true") {
-                    // App Store용 프로비저닝 프로필 설정 (프로젝트 루트에 위치해야 함)
+                    // App Store build setting
+                    println("Configuring for App Store distribution...")
+                    signing.identity.set("Apple Distribution: JooHyung Park (ZQC7QNZ4J8)")
                     provisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
                     runtimeProvisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
-
-                    // App Store용 entitlements 파일 설정 (프로젝트 루트에 위치해야 함)
                     entitlementsFile.set(project.rootProject.file("entitlements-appstore.plist"))
                 } else {
-                    // Developer ID 배포용 entitlements 파일 설정 (프로젝트 루트에 위치해야 함)
+                    // Developer ID build setting (default)
+                    println("Configuring for Developer ID distribution...")
+                    signing.identity.set("Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
                     entitlementsFile.set(project.rootProject.file("entitlements.plist"))
 
-                    // Developer ID 배포 시에만 Notarization 설정 필요
+                    // Developer ID distribution requires Notarization
                     notarization {
                         appleID.set(System.getenv("APPLE_ID"))
                         password.set(System.getenv("APPLE_PASSWORD")) // App-Specific Password

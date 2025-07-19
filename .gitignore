@@ -91,7 +91,19 @@ replay_pid*
 # Environment variables
 .envrc
 
+# Kotlin build cache
+.kotlin/
+
 # Others
 /docs
 /scripts
 *.p12
+
+# Apple Developer certificates and profiles
+*.p12
+*.pem
+*.cer
+*.crt
+*.provisionprofile
+*.mobileprovision
+*.developerprofile
