@@ -94,6 +94,10 @@ replay_pid*
 # Kotlin build cache
 .kotlin/
 
+# AI Agent scripts
+.gemini
+.cursor
+
 # Others
 /docs
 /scripts
