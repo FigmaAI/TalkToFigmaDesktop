@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "kr.co.metadata.mcp"
-version = "1.0.0" // App version
+version = "1.0.1" // App version updated
 
 kotlin {
     jvmToolchain(21)
@@ -44,7 +44,7 @@ dependencies {
     // Logging with color and JSON support
     implementation("io.github.microutils:kotlin-logging:2.1.23")
     implementation("ch.qos.logback:logback-classic:1.4.11")
-    implementation("org.fusesource.jansi:jansi:2.4.0") // ANSI color support
+    // removed jansi library completely (solved signing issue)
     implementation("net.logstash.logback:logstash-logback-encoder:7.4") // JSON logging support
 
     // Test Dependencies
@@ -95,20 +95,20 @@ compose.desktop {
 
                 signing {
                     sign.set(true)
-                    // Signing Identity will be set in the if-else block below
+                    // Hardened runtime is set in entitlements file
                 }
 
                 if (System.getenv("BUILD_FOR_APP_STORE") == "true") {
                     // App Store build setting
                     println("Configuring for App Store distribution...")
-                    signing.identity.set("Apple Distribution: JooHyung Park (ZQC7QNZ4J8)")
+                    signing.identity.set(System.getenv("SIGNING_IDENTITY") ?: "Apple Distribution: JooHyung Park (ZQC7QNZ4J8)")
                     provisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
                     runtimeProvisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
                     entitlementsFile.set(project.rootProject.file("entitlements-appstore.plist"))
                 } else {
                     // Developer ID build setting (default)
                     println("Configuring for Developer ID distribution...")
-                    signing.identity.set("Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
+                    signing.identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
                     entitlementsFile.set(project.rootProject.file("entitlements.plist"))
 
                     // Developer ID distribution requires Notarization
