@@ -100,8 +100,6 @@ replay_pid*
 
 # Others
 /docs
-/scripts
-*.p12
 
 # Apple Developer certificates and profiles
 *.p12
