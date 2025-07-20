@@ -1,67 +1,79 @@
 #!/bin/bash
 
-# The build script for App Store distribution (latest policy applied)
-echo "🚀 Start building for App Store..."
+# =================================================================
+# Manual signing script for App Store distribution
+# This script builds, signs, and packages the app for App Store submission
+# 
+# Required environment variables:
+# - SIGNING_IDENTITY_APPSTORE: Apple Distribution identity
+# =================================================================
 
-# 1. Check certificates
-echo "📋 Checking certificates..."
-CERTIFICATES=$(security find-identity -v -p codesigning)
-if [ -z "$CERTIFICATES" ]; then
-    echo "❌ No code signing certificates found."
-    echo "   Please run setup-certificates.sh first."
+set -e # Exit immediately if a command exits with a non-zero status.
+
+echo "🚀 Starting App Store signing process..."
+
+# --- Configuration ---
+APP_NAME="TalkToFigma Desktop"
+APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
+PKG_DIR="app/build/compose/binaries/main/pkg"
+PKG_PATH="${PKG_DIR}/${APP_NAME}.pkg"
+PROVISIONING_PROFILE="TalkToFigma_App_Store.provisionprofile"
+ENTITLEMENTS="entitlements-appstore.plist"
+
+# Validate required environment variables
+if [ -z "$SIGNING_IDENTITY_APPSTORE" ]; then
+  echo "❌ Error: SIGNING_IDENTITY_APPSTORE environment variable is not set."
+  echo "   Example: export SIGNING_IDENTITY_APPSTORE=\"Apple Distribution: Your Name (TEAMID)\""
+  exit 1
+fi
+
+echo "📋 Build configuration:"
+echo "   - Signing Identity: $SIGNING_IDENTITY_APPSTORE"
+echo "   - Provisioning Profile: $PROVISIONING_PROFILE"
+echo "   - Entitlements: $ENTITLEMENTS"
+echo ""
+
+# --- 1. Build the app without signing ---
+echo "🔨 [Step 1/5] Building the app without automatic signing..."
+BUILD_FOR_APP_STORE=true ./gradlew clean createDistributable --no-configuration-cache
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "❌ Error: App not found at path: $APP_PATH. The build might have failed or the path changed."
     exit 1
 fi
-echo "✅ Certificates checked successfully"
+echo "✅ App built successfully at: $APP_PATH"
 
-# 2. Automatically detect Team ID
-echo "📋 Automatically detecting Team ID..."
-TEAM_ID=$(xcodebuild -list -json 2>/dev/null | grep -o '"teamID":"[^"]*"' | head -1 | cut -d'"' -f4)
-if [ -z "$TEAM_ID" ]; then
-    echo "⚠️  Team ID cannot be automatically detected."
-    echo "   Please set manually: export APPLE_TEAM_ID=\"YOUR_TEAM_ID\""
-    TEAM_ID="ZQC7QNZ4J8"  # Default value
+# --- 2. Embed the provisioning profile ---
+echo "📄 [Step 2/5] Embedding provisioning profile..."
+if [ ! -f "$PROVISIONING_PROFILE" ]; then
+    echo "❌ Error: Provisioning profile not found at: $PROVISIONING_PROFILE"
+    exit 1
 fi
-echo "✅ Team ID: $TEAM_ID"
+cp "$PROVISIONING_PROFILE" "$APP_PATH/Contents/embedded.provisionprofile"
+echo "✅ Provisioning profile embedded"
 
-# 3. Set environment variables
-export BUILD_FOR_APP_STORE=true
-export APPLE_TEAM_ID="$TEAM_ID"
+# --- 3. Sign the app ---
+echo "🔏 [Step 3/5] Signing the app with identity: $SIGNING_IDENTITY_APPSTORE"
+/usr/bin/codesign --force --options runtime --deep --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY_APPSTORE" "$APP_PATH"
 
-# Automatically detect Apple Distribution certificate
-DISTRIBUTION_CERT=$(security find-identity -v -p codesigning | grep "Apple Distribution" | head -1 | cut -d'"' -f2)
-if [ -n "$DISTRIBUTION_CERT" ]; then
-    export SIGNING_IDENTITY="$DISTRIBUTION_CERT"
-    echo "✅ Signing certificate: $SIGNING_IDENTITY"
-else
-    echo "⚠️  Apple Distribution certificate not found."
-    echo "   Please create Apple Distribution certificate in Xcode."
+# --- 4. Verify the signature ---
+echo "🔍 [Step 4/5] Verifying signature..."
+/usr/bin/codesign -vvv --deep --strict "$APP_PATH"
+echo "✅ App signed successfully for App Store distribution!"
+
+# --- 5. Create the .pkg file for App Store submission ---
+echo "📦 [Step 5/5] Creating .pkg file for App Store submission..."
+mkdir -p "$PKG_DIR"
+# Create unsigned .pkg file (Apple will re-sign it during submission)
+/usr/bin/productbuild --component "$APP_PATH" /Applications "$PKG_PATH"
+
+if [ ! -f "$PKG_PATH" ]; then
+    echo "❌ Error: Failed to create .pkg file"
     exit 1
 fi
 
 echo ""
-echo "📋 Build settings:"
-echo "  - App Store distribution: $BUILD_FOR_APP_STORE"
-echo "  - Signing certificate: $SIGNING_IDENTITY"
-echo "  - Team ID: $APPLE_TEAM_ID"
-
-# 4. Run build
-echo ""
-echo "🔨 Start building..."
-./gradlew clean build
-
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ Build completed!"
-    echo "📦 Created files:"
-    echo "  - app/build/compose/binaries/main/apple/AppStore/TalkToFigma Desktop.pkg"
-    echo ""
-    echo "🎯 Next steps:"
-    echo "   1. Login to App Store Connect"
-    echo "   2. My Apps > + button > New App"
-    echo "   3. Upload the created .pkg file"
-else
-    echo ""
-    echo "❌ Build failed!"
-    echo "   Please check the error log."
-    exit 1
-fi 
+echo "🎉 Process completed successfully!"
+echo "    You can find the .pkg file at: $PKG_PATH"
+echo "    Upload this file to App Store Connect for distribution."
+echo "    Note: This .pkg file is unsigned, but Apple will re-sign it during the submission process." 
