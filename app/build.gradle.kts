@@ -93,23 +93,22 @@ compose.desktop {
                     "-XX:+UseStringDeduplication"
                 )
 
-                signing {
-                    sign.set(true)
-                    // Hardened runtime is set in entitlements file
-                }
 
                 if (System.getenv("BUILD_FOR_APP_STORE") == "true") {
                     // App Store build setting
-                    println("Configuring for App Store distribution...")
-                    signing.identity.set(System.getenv("SIGNING_IDENTITY") ?: "Apple Distribution: JooHyung Park (ZQC7QNZ4J8)")
-                    provisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
-                    runtimeProvisioningProfile.set(project.rootProject.file("TalkToFigma_App_Store.provisionprofile"))
-                    entitlementsFile.set(project.rootProject.file("entitlements-appstore.plist"))
+                    println("Configuring for App Store distribution... manual signing")
+                    signing {
+                        sign.set(false)
+                    }
+                
                 } else {
                     // Developer ID build setting (default)
                     println("Configuring for Developer ID distribution...")
-                    signing.identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
-                    entitlementsFile.set(project.rootProject.file("entitlements.plist"))
+                    signing {
+                        sign.set(true)
+                        identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
+                        entitlementsFile.set(project.rootProject.file("entitlements.plist"))
+                    }
 
                     // Developer ID distribution requires Notarization
                     notarization {
@@ -136,7 +135,10 @@ compose.desktop {
 }
 
 tasks.register("printVersion") {
+    // Store version during configuration phase
+    val versionValue = project.version.toString()
+    
     doLast {
-        println(project.version)
+        println(versionValue)
     }
 }
