@@ -50,9 +50,6 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Build with Gradle
-      run: ./gradlew build --no-daemon
-      
     - name: Run tests
       run: ./gradlew test --no-daemon
       
@@ -124,7 +121,14 @@ jobs:
         echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> $GITHUB_ENV
         echo "SIGNING_IDENTITY=${SIGNING_IDENTITY}" >> $GITHUB_ENV
       
-    - name: Create DMG package
+    - name: Notarize and Package
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        chmod +x scripts/notarize.sh
+        ./scripts/notarize.sh
+      
+    - name: Create Unsigned DMG for internal testing
+      if: github.ref == 'refs/heads/main'
       run: ./gradlew packageDmg --no-daemon
       
     - name: Clean up keychain
