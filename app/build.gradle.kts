@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "kr.co.metadata.mcp"
-version = "1.0.1" // App version updated
+version = "1.0.2" // App version updated
 
 kotlin {
     jvmToolchain(21)
@@ -83,6 +83,12 @@ compose.desktop {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
                 dockName = "TalkToFigma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
+                
+                // Fix LSApplicationCategoryType issue
+                appCategory = "public.app-category.developer-tools"
+                
+                // Set minimum macOS version to 12.0 to allow arm64-only builds
+                minimumSystemVersion = "12.0"
                 
                 // Optimized JVM arguments
                 jvmArgs(
