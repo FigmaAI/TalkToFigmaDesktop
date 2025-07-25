@@ -1,0 +1,23 @@
+# TalkToFigma Desktop - Environment Variables Template
+# Copy this file to .envrc and fill in your own values
+
+# Apple Developer Certificates and Signing
+export SIGNING_IDENTITY_APPSTORE="Apple Distribution: YOUR_NAME (YOUR_TEAM_ID)"
+export INSTALLER_IDENTITY="3rd Party Mac Developer Installer: YOUR_NAME (YOUR_TEAM_ID)"
+
+# Apple Developer Account
+export APPLE_ID="your-apple-id@email.com"
+export APPLE_APP_PASSWORD="your-app-specific-password"
+export APPLE_TEAM_ID="YOUR_TEAM_ID"
+
+# Java Development Kit
+# Make sure Amazon Corretto 21 is installed:
+# Download from: https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/downloads-list.html
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/amazon-corretto-21.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# Instructions:
+# 1. Copy this file: cp .envrc.template .envrc
+# 2. Fill in your Apple Developer details
+# 3. Install Amazon Corretto 21 if not already installed
+# 4. Run: direnv allow 

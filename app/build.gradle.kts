@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "kr.co.metadata.mcp"
-version = "1.0.2" // App version updated
+version = "1.0.4" // App version
 
 kotlin {
     jvmToolchain(21)
@@ -99,7 +99,14 @@ compose.desktop {
                     "-XX:+UseStringDeduplication"
                 )
 
+                // Add required Info.plist key for export compliance
+                infoPlist {
+                    "ITSAppUsesNonExemptEncryption" to false
+                }
 
+                // 공통 entitlements 파일 사용 (App Store와 Developer ID 모두 호환)
+                entitlementsFile.set(project.rootProject.file("entitlements.plist"))
+                
                 if (System.getenv("BUILD_FOR_APP_STORE") == "true") {
                     // App Store build setting
                     println("Configuring for App Store distribution... manual signing")
@@ -113,7 +120,6 @@ compose.desktop {
                     signing {
                         sign.set(true)
                         identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
-                        entitlementsFile.set(project.rootProject.file("entitlements.plist"))
                     }
 
                     // Developer ID distribution requires Notarization
