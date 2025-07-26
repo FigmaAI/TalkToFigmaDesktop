@@ -116,17 +116,21 @@ compose.desktop {
                 
                 } else {
                     // Developer ID build setting (default)
-                    println("Configuring for Developer ID distribution...")
-                    signing {
-                        sign.set(true)
-                        identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
-                    }
+                    val signingEnabled = project.properties["signingEnabled"]?.toString()?.toBoolean() ?: true
+                    println("Configuring for Developer ID distribution (Signing enabled: $signingEnabled)")
 
-                    // Developer ID distribution requires Notarization
-                    notarization {
-                        appleID.set(System.getenv("APPLE_ID"))
-                        password.set(System.getenv("APPLE_PASSWORD")) // App-Specific Password
-                        teamID.set(System.getenv("APPLE_TEAM_ID"))
+                    if (signingEnabled) {
+                        signing {
+                            sign.set(true)
+                            identity.set(System.getenv("SIGNING_IDENTITY") ?: "Developer ID Application: JooHyung Park (ZQC7QNZ4J8)")
+                        }
+                        
+                        // Developer ID distribution requires Notarization
+                        notarization {
+                            appleID.set(System.getenv("APPLE_ID"))
+                            password.set(System.getenv("APPLE_PASSWORD")) // App-Specific Password
+                            teamID.set(System.getenv("APPLE_TEAM_ID"))
+                        }
                     }
                 }
             }
