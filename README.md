@@ -148,6 +148,9 @@ You'll see status indicators:
 
 Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.figma.com/community/plugin/1485687494525374295/cursor-talk-to-figma-mcp-plugin)
 
+> [!IMPORTANT]
+> **Important Note About Prerequisites**: The plugin page may mention installing bun.sh and other prerequisites. **These are NOT required when using TalkToFigma Desktop**, as this application already includes all necessary server components. You can safely ignore those instructions and simply install the plugin directly.
+
 > [!TIP]
 > **Plugin Connection**: The Figma plugin will automatically attempt to connect to your desktop app on port 3055. Make sure TalkToFigma Desktop is running with servers started before launching the plugin.
 

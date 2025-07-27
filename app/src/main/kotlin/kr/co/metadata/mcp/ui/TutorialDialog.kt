@@ -14,10 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,32 +37,33 @@ fun TutorialDialog(
     onDismiss: () -> Unit
 ) {
     if (isVisible) {
+        val dialogState = rememberDialogState(
+            position = WindowPosition.Aligned(Alignment.Center),
+            width = 800.dp,
+            height = 600.dp
+        )
+        
         DialogWindow(
             onCloseRequest = onDismiss,
-            state = rememberDialogState(
-                position = WindowPosition.Aligned(Alignment.Center),
-                width = 800.dp,
-                height = 600.dp
-            ),
+            state = dialogState,
             title = "Getting Started Tutorial",
             alwaysOnTop = true,
             focusable = true
         ) {
             val isDarkTheme = isSystemInDarkTheme()
             val uriHandler = LocalUriHandler.current
-            val clipboardManager = LocalClipboardManager.current
             var currentStep by remember { mutableStateOf(0) }
-            val totalSteps = 5
+            val totalSteps = 6
 
             val tutorialSteps = listOf(
                 TutorialStep(
                     title = "Copy MCP Address",
-                    description = "Click the tray icon → Select MCP Configuration menu\nClick the copy button to copy the MCP server address",
+                    description = "Go to MCP Configuration menu from the tray and copy the MCP server addresses",
                     image = "tutorials/Slide 4_3 - 1.png"
                 ),
                 TutorialStep(
-                    title = "Register MCP Server in IDE (Cursor)",
-                    description = "Menu → Settings... → Cursor Settings → Tools & Integrations\nClick New MCP Server",
+                    title = "Register MCP Server in IDE",
+                    description = "For example, in Cursor IDE,\n\nGo to Cursor Settings → Tools & Integrations\n\nClick New MCP Server",
                     image = "tutorials/Slide 4_3 - 2.png"
                 ),
                 TutorialStep(
@@ -79,8 +78,13 @@ fun TutorialDialog(
                 ),
                 TutorialStep(
                     title = "Run Figma Plugin",
-                    description = "Run the Cursor Talk To Figma plugin\nToggle \"Use Localhost\" and click Connect\nA channel ID will be generated when connected",
+                    description = "Find and run the Cursor Talk To Figma plugin in Figma",
                     image = "tutorials/Slide 4_3 - 5.png"
+                ),
+                TutorialStep(
+                    title = "Connect to TalkToFigma Desktop",
+                    description = "Toggle \"Use Localhost\" on\nClick Connect button to establish connection!",
+                    image = "tutorials/Slide 4_3 - 6.png"
                 )
             )
 
@@ -97,7 +101,28 @@ fun TutorialDialog(
                             .padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-
+                        // Header with close button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Getting Started - Step ${currentStep + 1} of $totalSteps",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDarkTheme) Color.White else Color(0xFF333333)
+                            )
+                            
+                            // Close button
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close tutorial",
+                                    tint = if (isDarkTheme) Color.White else Color(0xFF333333)
+                                )
+                            }
+                        }
 
                         // Progress indicator
                         Column(
@@ -153,12 +178,7 @@ fun TutorialDialog(
                                         Image(
                                             painter = imagePainter,
                                             contentDescription = "Tutorial step ${currentStep + 1}",
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Color.LightGray.copy(alpha = 0.1f),
-                                                    RoundedCornerShape(8.dp)
-                                                )
+                                            modifier = Modifier.fillMaxSize()
                                         )
                                     } else {
                                         // Fallback if image not found
@@ -248,7 +268,7 @@ fun TutorialDialog(
                                             }
                                         }
                                         4 -> {
-                                            // Step 5: Figma Plugin
+                                            // Step 5: Figma Plugin Installation
                                             OutlinedCard(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = CardDefaults.outlinedCardColors(
@@ -291,6 +311,37 @@ fun TutorialDialog(
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Text("Open Plugin Page")
                                                     }
+                                                }
+                                            }
+                                        }
+                                        5 -> {
+                                            // Step 6: Connection
+                                            OutlinedCard(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = CardDefaults.outlinedCardColors(
+                                                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
+                                                ),
+                                                border = CardDefaults.outlinedCardBorder(
+                                                    enabled = true
+                                                )
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(12.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "💡 Important:",
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = if (isDarkTheme) Color.White else Color.Black,
+                                                        modifier = Modifier.padding(bottom = 8.dp)
+                                                    )
+                                                    
+                                                    Text(
+                                                        text = "Make sure TalkToFigma Desktop services are running before connecting. Check the tray icon menu to confirm.",
+                                                        fontSize = 12.sp,
+                                                        color = if (isDarkTheme) Color(0xFFE0E0E0) else Color(0xFF424242),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
                                                 }
                                             }
                                         }
