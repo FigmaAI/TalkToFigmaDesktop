@@ -40,13 +40,13 @@
     </appender>
 
     <!-- WebSocket Server specific logger with enhanced output -->
-    <logger name="com.grabtaxi.klever.server.WebSocketServer" level="DEBUG" additivity="false">
+    <logger name="kr.co.metadata.mcp.server.WebSocketServer" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_CONSOLE"/>
         <appender-ref ref="FILE"/>
     </logger>
 
     <!-- MCP Server specific logger -->
-    <logger name="com.grabtaxi.klever.server.McpServer" level="INFO" additivity="false">
+    <logger name="kr.co.metadata.mcp.server.McpServer" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_CONSOLE"/>
         <appender-ref ref="FILE"/>
     </logger>

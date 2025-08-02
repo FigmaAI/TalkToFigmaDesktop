@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,9 +23,19 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.DialogState
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberDialogState
-import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.awt.SwingPanel
 import mu.KotlinLogging
-import javax.imageio.ImageIO
+import kotlinx.coroutines.delay
+import javafx.application.Platform
+import javafx.embed.swing.JFXPanel
+import javafx.scene.Scene
+import javafx.scene.layout.StackPane
+import javafx.scene.media.Media
+import javafx.scene.media.MediaPlayer
+import javafx.scene.media.MediaView
+import javafx.util.Duration
+import java.io.File
+import javax.swing.SwingUtilities
 
 private val logger = KotlinLogging.logger {}
 
@@ -39,8 +48,8 @@ fun TutorialDialog(
     if (isVisible) {
         val dialogState = rememberDialogState(
             position = WindowPosition.Aligned(Alignment.Center),
-            width = 800.dp,
-            height = 600.dp
+            width = 780.dp,
+            height = 750.dp
         )
         
         DialogWindow(
@@ -52,41 +61,113 @@ fun TutorialDialog(
         ) {
             val isDarkTheme = isSystemInDarkTheme()
             val uriHandler = LocalUriHandler.current
-            var currentStep by remember { mutableStateOf(0) }
-            val totalSteps = 6
-
-            val tutorialSteps = listOf(
-                TutorialStep(
-                    title = "Copy MCP Address",
+            var currentVideoIndex by remember { mutableStateOf(0) }
+            
+            // 비디오 파일 경로 목록
+            val videoTutorials = listOf(
+                TutorialVideo(
+                    title = "Step 1: Open MCP Configuration",
                     description = "Go to MCP Configuration menu from the tray and copy the MCP server addresses",
-                    image = "tutorials/Slide 4_3 - 1.png"
+                    videoPath = "tutorials/tutorial01.mp4"
                 ),
-                TutorialStep(
-                    title = "Register MCP Server in IDE",
-                    description = "For example, in Cursor IDE,\n\nGo to Cursor Settings → Tools & Integrations\n\nClick New MCP Server",
-                    image = "tutorials/Slide 4_3 - 2.png"
+                TutorialVideo(
+                    title = "Step 2: Configure IDE",
+                    description = "In Cursor IDE, go to Settings → Tools & Integrations and paste the MCP server JSON configuration",
+                    videoPath = "tutorials/tutorial02.mp4"
                 ),
-                TutorialStep(
-                    title = "Paste the JSON Configuration",
-                    description = "Paste the copied JSON into the MCP server setting",
-                    image = "tutorials/Slide 4_3 - 3.png"
+                TutorialVideo(
+                    title = "Step 3: Start Services",
+                    description = "Click \"Start Services\" in the tray menu and ensure Tools are enabled in MCP settings",
+                    videoPath = "tutorials/tutorial03.mp4"
                 ),
-                TutorialStep(
-                    title = "Start MCP Server and WebSocket",
-                    description = "Click \"Start Services\" in the tray menu\nCheck that Tools are enabled in MCP settings",
-                    image = "tutorials/Slide 4_3 - 4.png"
-                ),
-                TutorialStep(
-                    title = "Run Figma Plugin",
+                TutorialVideo(
+                    title = "Step 4: Run Figma Plugin",
                     description = "Find and run the Cursor Talk To Figma plugin in Figma",
-                    image = "tutorials/Slide 4_3 - 5.png"
+                    videoPath = "tutorials/tutorial04.mp4"
                 ),
-                TutorialStep(
-                    title = "Connect to TalkToFigma Desktop",
-                    description = "Toggle \"Use Localhost\" on\nClick Connect button to establish connection!",
-                    image = "tutorials/Slide 4_3 - 6.png"
+                TutorialVideo(
+                    title = "Step 5: Connect to Desktop",
+                    description = "Toggle \"Use Localhost\" on and click Connect button to establish connection",
+                    videoPath = "tutorials/tutorial05.mp4"
                 )
             )
+            
+            val totalVideos = videoTutorials.size
+            
+            // JavaFX MediaPlayer state
+            var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+            var jfxPanel by remember { mutableStateOf<JFXPanel?>(null) }
+            
+            // Initialize JavaFX when currentVideoIndex changes
+            LaunchedEffect(currentVideoIndex) {
+                val videoPath = videoTutorials[currentVideoIndex].videoPath
+                val resourceUrl = javaClass.classLoader.getResource(videoPath)
+                val darkTheme = isDarkTheme // Capture the theme value
+                
+                if (resourceUrl != null) {
+                    Platform.runLater {
+                        try {
+                            // Dispose previous media player
+                            mediaPlayer?.dispose()
+                            
+                            // Create new media and player
+                            val media = Media(resourceUrl.toExternalForm())
+                            val newMediaPlayer = MediaPlayer(media)
+                            
+                            newMediaPlayer.setOnEndOfMedia {
+                                logger.info { "Video ${currentVideoIndex + 1} ended" }
+                                if (currentVideoIndex < totalVideos - 1) {
+                                    SwingUtilities.invokeLater {
+                                        currentVideoIndex++
+                                    }
+                                }
+                            }
+                            
+                            newMediaPlayer.setOnError {
+                                logger.error { "MediaPlayer error: ${newMediaPlayer.error}" }
+                            }
+                            
+                            // Create MediaView and Scene
+                            val mediaView = MediaView(newMediaPlayer)
+                            mediaView.isPreserveRatio = true
+                            
+                            val root = StackPane()
+                            root.children.add(mediaView)
+                            
+                            // Set background color based on theme
+                            val backgroundColor = if (darkTheme) "#2D2D2D" else "#FFFFFF"
+                            root.style = "-fx-background-color: $backgroundColor;"
+                            
+                            val scene = Scene(root)
+                            scene.fill = javafx.scene.paint.Paint.valueOf(backgroundColor)
+                            jfxPanel?.scene = scene
+                            
+                            // Bind MediaView size to scene size
+                            mediaView.fitWidthProperty().bind(scene.widthProperty())
+                            mediaView.fitHeightProperty().bind(scene.heightProperty())
+                            
+                            mediaPlayer = newMediaPlayer
+                            newMediaPlayer.play()
+                            
+                        } catch (e: Exception) {
+                            logger.error(e) { "Failed to load video: $videoPath" }
+                        }
+                    }
+                } else {
+                    logger.error { "Video resource not found: $videoPath" }
+                }
+            }
+            
+            // Clean up on dialog dismiss
+            DisposableEffect(isVisible) {
+                onDispose {
+                    if (!isVisible) {
+                        Platform.runLater {
+                            mediaPlayer?.dispose()
+                        }
+                    }
+                }
+            }
 
             MaterialTheme(
                 colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
@@ -98,8 +179,8 @@ fun TutorialDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // Header with close button
                         Row(
@@ -108,8 +189,8 @@ fun TutorialDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Getting Started - Step ${currentStep + 1} of $totalSteps",
-                                fontSize = 16.sp,
+                                text = videoTutorials[currentVideoIndex].title,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (isDarkTheme) Color.White else Color(0xFF333333)
                             )
@@ -124,23 +205,24 @@ fun TutorialDialog(
                             }
                         }
 
-                        // Progress indicator
+                        // Progress indicator with description
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             LinearProgressIndicator(
-                                progress = { (currentStep + 1) / totalSteps.toFloat() },
+                                progress = { (currentVideoIndex + 1) / totalVideos.toFloat() },
                                 modifier = Modifier.fillMaxWidth(),
                                 color = if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
                             )
                             Text(
-                                text = "Step ${currentStep + 1} of $totalSteps",
+                                text = videoTutorials[currentVideoIndex].description,
                                 fontSize = 14.sp,
-                                color = if (isDarkTheme) Color(0xFFB3B3B3) else Color(0xFF666666)
+                                lineHeight = 20.sp,
+                                color = if (isDarkTheme) Color(0xFFE0E0E0) else Color(0xFF424242)
                             )
                         }
 
-                        // Main content card
+                        // Video player card
                         OutlinedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -152,198 +234,77 @@ fun TutorialDialog(
                                 enabled = true
                             )
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize()
+                            // Video section with JavaFX MediaPlayer
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             ) {
-                                // Image section
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .padding(16.dp)
-                                ) {
-                                    val imagePainter = remember(tutorialSteps[currentStep].image) {
-                                        try {
-                                            val resource = this::class.java.classLoader.getResource(tutorialSteps[currentStep].image)
-                                            if (resource != null) {
-                                                val bufferedImage = javax.imageio.ImageIO.read(resource)
-                                                androidx.compose.ui.graphics.painter.BitmapPainter(bufferedImage.toComposeImageBitmap())
-                                            } else null
-                                        } catch (e: Exception) {
-                                            null
+                                SwingPanel(
+                                    background = if (isDarkTheme) androidx.compose.ui.graphics.Color(0xFF2D2D2D) else androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier.fillMaxSize(),
+                                    factory = {
+                                        JFXPanel().also { 
+                                            jfxPanel = it
+                                            // Initialize JavaFX Platform
+                                            Platform.runLater {
+                                                // Empty initialization
+                                            }
                                         }
                                     }
-                                    
-                                    if (imagePainter != null) {
-                                        Image(
-                                            painter = imagePainter,
-                                            contentDescription = "Tutorial step ${currentStep + 1}",
-                                            modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+
+                        // Bottom action area (80dp height for all steps)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                        ) {
+                            // Figma Plugin link only for Step 4
+                            if (currentVideoIndex == 3) {
+                                OutlinedCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.outlinedCardColors(
+                                        containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Cursor Talk To Figma Plugin",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (isDarkTheme) Color.White else Color.Black
                                         )
-                                    } else {
-                                        // Fallback if image not found
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Color.LightGray.copy(alpha = 0.2f),
-                                                    RoundedCornerShape(8.dp)
-                                                ),
-                                            contentAlignment = Alignment.Center
+                                        
+                                        OutlinedButton(
+                                            onClick = {
+                                                try {
+                                                    uriHandler.openUri("https://www.figma.com/community/plugin/1485687494525374295/cursor-talk-to-figma-mcp-plugin")
+                                                    logger.info { "Opened Figma plugin page" }
+                                                } catch (e: Exception) {
+                                                    logger.error(e) { "Failed to open Figma plugin page" }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
+                                            )
                                         ) {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Image,
-                                                    contentDescription = null,
-                                                    tint = Color.Gray,
-                                                    modifier = Modifier.size(48.dp)
-                                                )
-                                                Text(
-                                                    text = "Image not available",
-                                                    color = Color.Gray,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Content section
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    // Step title
-                                    Text(
-                                        text = tutorialSteps[currentStep].title,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isDarkTheme) Color.White else Color(0xFF1F1F1F)
-                                    )
-
-                                    // Step description
-                                    Text(
-                                        text = tutorialSteps[currentStep].description,
-                                        fontSize = 16.sp,
-                                        lineHeight = 24.sp,
-                                        color = if (isDarkTheme) Color(0xFFE0E0E0) else Color(0xFF424242)
-                                    )
-
-                                    // Special actions for specific steps
-                                    when (currentStep) {
-                                        0 -> {
-                                            // Step 1: MCP Configuration - Reference to main dialog
-                                            OutlinedCard(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = CardDefaults.outlinedCardColors(
-                                                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
-                                                ),
-                                                border = CardDefaults.outlinedCardBorder(
-                                                    enabled = true
-                                                )
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(12.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "💡 Tip:",
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = if (isDarkTheme) Color.White else Color.Black,
-                                                        modifier = Modifier.padding(bottom = 8.dp)
-                                                    )
-                                                    
-                                                    Text(
-                                                        text = "Use the 'MCP Configuration' menu item in the tray to get the JSON configuration that you'll need to paste in the next steps.",
-                                                        fontSize = 12.sp,
-                                                        color = if (isDarkTheme) Color(0xFFE0E0E0) else Color(0xFF424242),
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        4 -> {
-                                            // Step 5: Figma Plugin Installation
-                                            OutlinedCard(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = CardDefaults.outlinedCardColors(
-                                                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
-                                                ),
-                                                border = CardDefaults.outlinedCardBorder(
-                                                    enabled = true
-                                                )
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(12.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Cursor Talk To Figma Plugin:",
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = if (isDarkTheme) Color.White else Color.Black,
-                                                        modifier = Modifier.padding(bottom = 8.dp)
-                                                    )
-                                                    
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            try {
-                                                                uriHandler.openUri("https://www.figma.com/community/plugin/1485687494525374295/cursor-talk-to-figma-mcp-plugin")
-                                                                logger.info { "Opened Figma plugin page" }
-                                                            } catch (e: Exception) {
-                                                                logger.error(e) { "Failed to open Figma plugin page" }
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        colors = ButtonDefaults.outlinedButtonColors(
-                                                            contentColor = if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
-                                                        )
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.AutoMirrored.Filled.Launch,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Text("Open Plugin Page")
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        5 -> {
-                                            // Step 6: Connection
-                                            OutlinedCard(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = CardDefaults.outlinedCardColors(
-                                                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
-                                                ),
-                                                border = CardDefaults.outlinedCardBorder(
-                                                    enabled = true
-                                                )
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(12.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "💡 Important:",
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = if (isDarkTheme) Color.White else Color.Black,
-                                                        modifier = Modifier.padding(bottom = 8.dp)
-                                                    )
-                                                    
-                                                    Text(
-                                                        text = "Make sure TalkToFigma Desktop services are running before connecting. Check the tray icon menu to confirm.",
-                                                        fontSize = 12.sp,
-                                                        color = if (isDarkTheme) Color(0xFFE0E0E0) else Color(0xFF424242),
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    )
-                                                }
-                                            }
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.Launch,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Open")
                                         }
                                     }
                                 }
@@ -357,9 +318,11 @@ fun TutorialDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Previous button
-                            if (currentStep > 0) {
+                            if (currentVideoIndex > 0) {
                                 OutlinedButton(
-                                    onClick = { currentStep-- },
+                                    onClick = { 
+                                        currentVideoIndex--
+                                    },
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = if (isDarkTheme) Color.White else Color(0xFF666666)
                                     )
@@ -381,19 +344,21 @@ fun TutorialDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                repeat(totalSteps) { index ->
+                                repeat(totalVideos) { index ->
                                     Box(
                                         modifier = Modifier
                                             .size(8.dp)
                                             .background(
-                                                if (index == currentStep) {
+                                                if (index == currentVideoIndex) {
                                                     if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
                                                 } else {
                                                     Color.Gray.copy(alpha = 0.3f)
                                                 },
                                                 androidx.compose.foundation.shape.CircleShape
                                             )
-                                            .clickable { currentStep = index }
+                                            .clickable { 
+                                                currentVideoIndex = index
+                                            }
                                     )
                                 }
                             }
@@ -401,8 +366,8 @@ fun TutorialDialog(
                             // Next/Finish button
                             Button(
                                 onClick = {
-                                    if (currentStep < totalSteps - 1) {
-                                        currentStep++
+                                    if (currentVideoIndex < totalVideos - 1) {
+                                        currentVideoIndex++
                                     } else {
                                         onDismiss()
                                     }
@@ -411,10 +376,10 @@ fun TutorialDialog(
                                     containerColor = if (isDarkTheme) Color(0xFF64B5F6) else Color(0xFF1976D2)
                                 )
                             ) {
-                                Text(if (currentStep < totalSteps - 1) "Next" else "Finish")
+                                Text(if (currentVideoIndex < totalVideos - 1) "Next" else "Finish")
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
-                                    imageVector = if (currentStep < totalSteps - 1) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Check,
+                                    imageVector = if (currentVideoIndex < totalVideos - 1) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -427,10 +392,10 @@ fun TutorialDialog(
     }
 }
 
-data class TutorialStep(
+data class TutorialVideo(
     val title: String,
     val description: String,
-    val image: String
+    val videoPath: String
 )
 
 @Composable

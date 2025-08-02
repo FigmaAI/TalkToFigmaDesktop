@@ -3,10 +3,16 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
+    id("org.openjfx.javafxplugin") version "0.1.0"
+}
+
+javafx {
+    version = "17.0.2"
+    modules("javafx.controls", "javafx.media", "javafx.swing")
 }
 
 group = "kr.co.metadata.mcp"
-version = "1.0.4" // App version
+version = "1.0.5" // App version
 
 kotlin {
     jvmToolchain(21)
@@ -29,8 +35,6 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
-    
-
 
     // MCP Kotlin SDK (includes Ktor dependencies)
     implementation("io.modelcontextprotocol:kotlin-sdk:0.5.0")
@@ -89,6 +93,11 @@ compose.desktop {
                 
                 // Set minimum macOS version to 12.0 to allow arm64-only builds
                 minimumSystemVersion = "12.0"
+
+                buildTypes.release.proguard {
+                    obfuscate.set(false)
+                    configurationFiles.from(project.file("proguard-rules.pro"))
+                }
                 
                 // Optimized JVM arguments
                 jvmArgs(

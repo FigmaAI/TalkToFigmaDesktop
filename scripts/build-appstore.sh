@@ -16,7 +16,7 @@ echo "🚀 Starting App Store build and archive process..."
 # --- Configuration ---
 APP_NAME="TalkToFigma Desktop"
 APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
-ARCHIVE_NAME="TalkToFigma Desktop"
+ARCHIVE_NAME="TalkToFigma Desktop"./ㅎ
 ARCHIVE_PATH="app/build/compose/binaries/main/archive/${ARCHIVE_NAME}.xcarchive"
 PROVISIONING_PROFILE="TalkToFigma_App_Store.provisionprofile"
 ENTITLEMENTS="entitlements.plist"
@@ -45,7 +45,7 @@ echo "✅ App built successfully at: $APP_PATH"
 
 # --- Step 2: Embed the provisioning profile ---
 echo "📄 [Step 2/6] Embedding provisioning profile..."
-mkdir -p "${APP_PATH}/Contents/embedded.provisionprofile"
+mkdir -p "${APP_PATH}/Contents"
 cp "${PROVISIONING_PROFILE}" "${APP_PATH}/Contents/embedded.provisionprofile"
 echo "✅ Provisioning profile embedded"
 
@@ -105,47 +105,6 @@ mkdir -p "$ARCHIVE_PATH/BCSymbolMaps"
 echo "   📦 Copying app to archive..."
 cp -R "$APP_PATH" "$ARCHIVE_PATH/Products/Applications/"
 
-# Fix embedded.provisionprofile if it's a directory
-ARCHIVE_APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
-EMBEDDED_PROFILE_PATH="$ARCHIVE_APP_PATH/Contents/embedded.provisionprofile"
-
-echo "   🔧 Fixing embedded.provisionprofile..."
-if [ -d "$EMBEDDED_PROFILE_PATH" ]; then
-    echo "      embedded.provisionprofile is a directory, converting to file..."
-    # Find the actual provisioning profile file inside the directory
-    PROVISIONING_FILE=$(find "$EMBEDDED_PROFILE_PATH" -name "*.provisionprofile" -type f | head -1)
-    if [ -n "$PROVISIONING_FILE" ]; then
-        echo "      Found provisioning profile: $(basename "$PROVISIONING_FILE")"
-        # Copy the file to a temporary location first
-        TEMP_PROFILE="/tmp/embedded_temp.provisionprofile"
-        cp "$PROVISIONING_FILE" "$TEMP_PROFILE"
-        # Remove the directory and copy the file as embedded.provisionprofile
-        rm -rf "$EMBEDDED_PROFILE_PATH"
-        cp "$TEMP_PROFILE" "$EMBEDDED_PROFILE_PATH"
-        rm "$TEMP_PROFILE"
-        echo "      ✅ embedded.provisionprofile converted to file"
-    else
-        echo "      ⚠️  No .provisionprofile file found in directory"
-        # Try to use the main provisioning profile as fallback
-        if [ -f "$PROVISIONING_PROFILE" ]; then
-            echo "      📄 Using main App Store provisioning profile as fallback"
-            rm -rf "$EMBEDDED_PROFILE_PATH"
-            cp "$PROVISIONING_PROFILE" "$EMBEDDED_PROFILE_PATH"
-            echo "      ✅ embedded.provisionprofile created from fallback"
-        fi
-    fi
-elif [ -f "$EMBEDDED_PROFILE_PATH" ]; then
-    echo "      ✅ embedded.provisionprofile is already a file"
-else
-    echo "      ⚠️  embedded.provisionprofile not found, creating from main profile..."
-    if [ -f "$PROVISIONING_PROFILE" ]; then
-        cp "$PROVISIONING_PROFILE" "$EMBEDDED_PROFILE_PATH"
-        echo "      ✅ embedded.provisionprofile created"
-    else
-        echo "      ❌ $PROVISIONING_PROFILE not found!"
-    fi
-fi
-
 # Get current date in ISO 8601 format
 CREATION_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -168,9 +127,9 @@ cat > "$ARCHIVE_PATH/Info.plist" << EOF
         <key>CFBundleIdentifier</key>
         <string>${BUNDLE_ID}</string>
         <key>CFBundleShortVersionString</key>
-        <string>1.0.4</string>
+        <string>1.0.5</string>
         <key>CFBundleVersion</key>
-        <string>1.0.4</string>
+        <string>4</string>
         <key>SigningIdentity</key>
         <string>${SIGNING_IDENTITY_APPSTORE}</string>
         <key>Team</key>
