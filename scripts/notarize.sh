@@ -13,7 +13,7 @@ set -e # Exit immediately if a command exits with a non-zero status.
 echo "🚀 Starting notarization process (using notarytool)..."
 
 # --- Configuration ---
-APP_NAME="TalkToFigma Desktop"
+APP_NAME="Cursor Talk to Figma desktop"
 # The .app bundle is located in the 'app' directory, not 'dmg'
 APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
 BUILD_DIR="app/build/manual_notarization"
