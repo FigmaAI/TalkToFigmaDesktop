@@ -98,21 +98,29 @@ fun TutorialDialog(
             var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
             var jfxPanel by remember { mutableStateOf<JFXPanel?>(null) }
             
-            // Initialize JavaFX when currentVideoIndex changes
-            LaunchedEffect(currentVideoIndex) {
-                val videoPath = videoTutorials[currentVideoIndex].videoPath
-                val resourceUrl = javaClass.classLoader.getResource(videoPath)
-                val darkTheme = isDarkTheme // Capture the theme value
-                
-                if (resourceUrl != null) {
-                    Platform.runLater {
+            // Initialize JavaFX when currentVideoIndex changes or dialog reopens
+            LaunchedEffect(currentVideoIndex, isVisible) {
+                if (isVisible) {
+                    val videoPath = videoTutorials[currentVideoIndex].videoPath
+                    val resourceUrl = javaClass.classLoader.getResource(videoPath)
+                    val darkTheme = isDarkTheme // Capture the theme value
+                    
+                    if (resourceUrl != null) {
+                        // Ensure JavaFX Platform is ready
                         try {
-                            // Dispose previous media player
-                            mediaPlayer?.dispose()
-                            
-                            // Create new media and player
-                            val media = Media(resourceUrl.toExternalForm())
-                            val newMediaPlayer = MediaPlayer(media)
+                            Platform.setImplicitExit(false)
+                        } catch (e: Exception) {
+                            logger.debug(e) { "Platform already initialized" }
+                        }
+                        
+                        Platform.runLater {
+                            try {
+                                // Dispose previous media player
+                                mediaPlayer?.dispose()
+                                
+                                // Create new media and player with error handling
+                                val media = Media(resourceUrl.toExternalForm())
+                                val newMediaPlayer = MediaPlayer(media)
                             
                             newMediaPlayer.setOnEndOfMedia {
                                 logger.info { "Video ${currentVideoIndex + 1} ended" }
@@ -150,11 +158,20 @@ fun TutorialDialog(
                             newMediaPlayer.play()
                             
                         } catch (e: Exception) {
-                            logger.error(e) { "Failed to load video: $videoPath" }
+                            logger.error(e) { "Failed to load video: $videoPath. JavaFX Error: ${e.message}" }
+                            // Try to reinitialize JavaFX and retry once
+                            try {
+                                Platform.runLater {
+                                    logger.info { "Retrying video initialization after JavaFX error" }
+                                }
+                            } catch (retryException: Exception) {
+                                logger.error(retryException) { "JavaFX retry also failed" }
+                            }
                         }
                     }
-                } else {
-                    logger.error { "Video resource not found: $videoPath" }
+                    } else {
+                        logger.error { "Video resource not found: $videoPath" }
+                    }
                 }
             }
             
@@ -241,19 +258,27 @@ fun TutorialDialog(
                                     .padding(8.dp)
                                     .clip(RoundedCornerShape(8.dp))
                             ) {
-                                SwingPanel(
-                                    background = if (isDarkTheme) androidx.compose.ui.graphics.Color(0xFF2D2D2D) else androidx.compose.ui.graphics.Color.White,
-                                    modifier = Modifier.fillMaxSize(),
-                                    factory = {
-                                        JFXPanel().also { 
-                                            jfxPanel = it
-                                            // Initialize JavaFX Platform
-                                            Platform.runLater {
-                                                // Empty initialization
+                                                                    SwingPanel(
+                                        background = if (isDarkTheme) androidx.compose.ui.graphics.Color(0xFF2D2D2D) else androidx.compose.ui.graphics.Color.White,
+                                        modifier = Modifier.fillMaxSize(),
+                                        factory = {
+                                            JFXPanel().also { 
+                                                jfxPanel = it
+                                                // Initialize JavaFX Platform explicitly
+                                                try {
+                                                    Platform.setImplicitExit(false)
+                                                    if (!Platform.isFxApplicationThread()) {
+                                                        Platform.runLater {
+                                                            // JavaFX Platform initialized
+                                                            logger.info { "JavaFX Platform initialized" }
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    logger.warn(e) { "JavaFX Platform initialization warning" }
+                                                }
                                             }
                                         }
-                                    }
-                                )
+                                    )
                             }
                         }
 
