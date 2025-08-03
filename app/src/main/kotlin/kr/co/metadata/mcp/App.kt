@@ -629,7 +629,7 @@ fun LogViewerDialog(
                                 onClick = {
                                     try {
                                         // Prepare issue content with log data
-                                        val issueTitle = "Bug Report from TalkToFigma Desktop"
+                                        val issueTitle = "Bug Report from Cursor Talk to Figma desktop"
                                         val issueBody = """
 ## Bug Description
 Please describe the issue you're experiencing:
@@ -722,7 +722,7 @@ fun main() {
         
         // Check if it's first time launch and show tutorial
         LaunchedEffect(Unit) {
-            logger.info { "TalkToFigma Desktop application started" }
+            logger.info { "Cursor Talk to Figma desktop application started" }
             
             try {
                 val prefs = Preferences.userNodeForPackage(this@application::class.java)
@@ -749,7 +749,7 @@ fun main() {
         Tray(
             icon = rememberSizedTrayIconPainter(trayIconPath, 128, 128),
             state = trayState,
-            tooltip = "TalkToFigma Desktop",
+                            tooltip = "Cursor Talk to Figma desktop",
             menu = {
                 // Status
                 val wsStatus = if (websocketServerRunning) "Running" else "Stopped"
