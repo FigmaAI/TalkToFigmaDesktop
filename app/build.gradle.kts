@@ -77,7 +77,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "TalkToFigma Desktop"
+            packageName = "Cursor Talk to Figma desktop"
             packageVersion = project.version.toString()
             
             // Include JRE for self-contained application
@@ -85,7 +85,7 @@ compose.desktop {
 
             macOS {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
-                dockName = "TalkToFigma Desktop"
+                dockName = "Cursor Talk to Figma desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
                 
                 // Fix LSApplicationCategoryType issue
@@ -145,7 +145,7 @@ compose.desktop {
             }
 
             windows {
-                menuGroup = "TalkToFigmaDesktop"
+                menuGroup = "Cursor Talk to Figma desktop"
                 upgradeUuid = "FCDFDD35-04EB-4698-89F5-3CCAB516B324"
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 // Console app (set to false to hide console window)
