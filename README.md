@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./icon.png" width="128" height="128" alt="TalkToFigma Desktop">
+  <img src="./icon.png" width="128" height="128" alt="Cursor Talk to Figma desktop">
 </p>
 
-<h1 align="center">TalkToFigma Desktop</h1>
+<h1 align="center">Cursor Talk to Figma desktop</h1>
 
 <p align="center">
   <b>A Kotlin-based desktop companion for seamless Figma-to-MCP integration</b>
@@ -52,43 +52,18 @@
 
 1. Go to [Releases](https://github.com/FigmaAI/TalkToFigmaDesktop/releases)
 2. Download the appropriate version for your platform:
-   - **macOS**: `TalkToFigmaDesktop-macOS.dmg`
-   - **Windows**: `TalkToFigmaDesktop-Windows.msi`
+   - **macOS**: `Cursor Talk to Figma desktop-macOS.dmg`
+   - **Windows**: `Cursor Talk to Figma desktop-Windows.msi`
 
-### macOS Installation & Security
+### macOS Installation
 
 1. **Download and Install**
    - Open the downloaded DMG file
-   - Drag TalkToFigma Desktop to your Applications folder
-
-2. **First Launch Security Guide**
-
-> [!WARNING]
-> **macOS Security Notice**: When you first try to open TalkToFigma Desktop, you may see security warnings. This is normal for applications not distributed through the App Store. **Do not click "Move to Trash"** - follow the steps below instead.
-
-   <details>
-   <summary>📱 Step-by-step security bypass guide</summary>
-
-   **If you see this message:**
-   ```
-   "TalkToFigma Desktop" can't be opened because it was not downloaded from the App Store.
-   ```
-   
-   **Solution:**
-   1. Right-click on the TalkToFigma Desktop app
-   2. Select "Open" from the context menu
-   3. Click "Open" in the dialog that appears
-   4. The app will now launch and create a permanent security exception
-
-   **Alternative method:**
-   1. Open System Preferences → Security & Privacy
-   2. Click "Open Anyway" next to the TalkToFigma Desktop warning
-   3. Enter your password when prompted
-
-   </details>
+   - Drag "Cursor Talk to Figma desktop" to your Applications folder
+   - Launch the application - it will start immediately without security warnings
 
 > [!NOTE]
-> These security messages appear because TalkToFigma Desktop is currently distributed independently and not through Apple's App Store. The application is safe to use, and following the steps above will create a permanent security exception.
+> **Enhanced Security**: This application is now code-signed and notarized by Apple, ensuring secure installation and execution without security warnings on macOS.
 
 ### Windows Installation
 
@@ -102,10 +77,10 @@
 
 ## Getting Started
 
-### 1. Launch TalkToFigma Desktop
+### 1. Launch Cursor Talk to Figma desktop
 
 - **macOS**: Find in Applications folder or Launchpad
-- **Windows**: Start menu → TalkToFigma Desktop
+- **Windows**: Start menu → Cursor Talk to Figma desktop
 
 The application will appear in your system tray with a server icon.
 
@@ -116,7 +91,7 @@ Right-click the system tray icon and select:
 - Or start them individually if needed
 
 > [!WARNING]
-> **Port Requirements**: TalkToFigma Desktop requires ports **3055** (WebSocket) and **3056** (MCP) to be available. If you have other applications using these ports, you may need to stop them first or use "Kill All Servers" from the tray menu.
+> **Port Requirements**: Cursor Talk to Figma desktop requires ports **3055** (WebSocket) and **3056** (MCP) to be available. If you have other applications using these ports, you may need to stop them first or use "Kill All Servers" from the tray menu.
 
 You'll see status indicators:
 - <img src="./app/src/main/resources/active_image.png" width="20" height="20" style="background-color: #000000;">: Servers running
@@ -129,7 +104,7 @@ You'll see status indicators:
 3. Paste into your Cursor settings under MCP servers:
 
 > [!NOTE]
-> The config is contained not only TalkToFigmaDesktop, but also official Figma DevMode MCP server URL.
+> The config contains both Cursor Talk to Figma desktop and the official Figma DevMode MCP server URL.
 
 ```json
 {
@@ -149,10 +124,10 @@ You'll see status indicators:
 Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.figma.com/community/plugin/1485687494525374295/cursor-talk-to-figma-mcp-plugin)
 
 > [!IMPORTANT]
-> **Important Note About Prerequisites**: The plugin page may mention installing bun.sh and other prerequisites. **These are NOT required when using TalkToFigma Desktop**, as this application already includes all necessary server components. You can safely ignore those instructions and simply install the plugin directly.
+> **Important Note About Prerequisites**: The plugin page may mention installing bun.sh and other prerequisites. **These are NOT required when using Cursor Talk to Figma desktop**, as this application already includes all necessary server components. You can safely ignore those instructions and simply install the plugin directly.
 
 > [!TIP]
-> **Plugin Connection**: The Figma plugin will automatically attempt to connect to your desktop app on port 3055. Make sure TalkToFigma Desktop is running with servers started before launching the plugin.
+> **Plugin Connection**: The Figma plugin will automatically attempt to connect to your desktop app on port 3055. Make sure Cursor Talk to Figma desktop is running with servers started before launching the plugin.
 
 ### 5. Connect and Use
 
@@ -176,9 +151,9 @@ Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.f
 > [!TIP]
 > **Firewall Issues**: If your firewall is blocking connections, add exceptions for ports 3055 and 3056, or temporarily disable the firewall to test connectivity.
 
-**🛡️ Security Warnings** 
-- Follow the platform-specific security bypass guides above
-- On Windows, temporarily disable real-time protection if needed
+**🛡️ Installation Issues** 
+- macOS: Application is code-signed and notarized - no security warnings expected
+- Windows: If Windows Defender shows a SmartScreen warning, click "More info" → "Run anyway"
 
 **🔧 Port Conflicts**
 - The app automatically handles port conflicts with enhanced retry logic
