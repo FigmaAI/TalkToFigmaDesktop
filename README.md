@@ -110,7 +110,7 @@ You'll see status indicators:
 {
   "mcpServers": {
     "Figma": {
-      "url": "http://127.0.0.1:3845/sse"
+      "url": "http://127.0.0.1:3845/mcp"
     },
     "TalkToFigmaDesktop": {
       "url": "http://127.0.0.1:3056/sse"
