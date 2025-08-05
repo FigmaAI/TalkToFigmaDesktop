@@ -45,6 +45,7 @@
 - ⚙️ **MCP Configuration**: Easy copy-paste configuration for Cursor or whatever
 - 🔄 **Auto Port Management**: Automatic port conflict resolution
 - 🖥️ **System Tray**: Clean interface with status indicators
+- 📈 **Analytics & Crash Reporting**: Google Analytics integration for monitoring app usage and crashes
 
 ## Installation
 
@@ -171,6 +172,46 @@ Access detailed logs via:
 1. Right-click tray icon → **"View Logs"**
 2. Use **Clear** to reset log view to current session
 3. Use **Copy** to share logs for troubleshooting
+
+## Google Analytics Setup
+
+### Configuration
+
+The app includes Google Analytics integration for crash reporting and usage analytics. To enable this feature:
+
+1. **Create a Google Analytics 4 Property**
+   - Go to [Google Analytics](https://analytics.google.com/)
+   - Create a new GA4 property
+   - Note your Measurement ID (format: `G-XXXXXXXXXX`)
+
+2. **Configure Analytics**
+   - Set environment variables in your `.envrc` file:
+     ```bash
+     export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
+     export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
+     ```
+   - Or set them in your system environment
+   - The app will automatically load these values from environment variables
+
+3. **Enable Features**
+   - Set `analytics.crash.reporting.enabled=true` for crash reporting
+   - Set `analytics.user.tracking.enabled=true` for user action tracking
+   - Set `analytics.debug.mode=false` for production
+
+### Privacy
+
+- Analytics data is sent to Google Analytics servers
+- No personally identifiable information is collected by default
+- Users can opt out by setting `analytics.user.id=` (empty)
+- Crash reports include system information for debugging
+
+### Data Collected
+
+- App start/stop events
+- Server start/stop events
+- Crash reports with stack traces
+- System information (OS, memory, etc.)
+- User actions (optional)
 
 ## Building from Source
 

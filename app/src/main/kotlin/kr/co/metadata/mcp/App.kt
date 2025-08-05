@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -47,10 +48,13 @@ import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.ui.platform.LocalClipboardManager
 import kr.co.metadata.mcp.ui.TutorialDialog
+import kr.co.metadata.mcp.analytics.AnalyticsConfig
+import kr.co.metadata.mcp.analytics.GoogleAnalyticsService
+import kr.co.metadata.mcp.analytics.CrashHandler
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 import java.io.File
 import java.util.prefs.Preferences
 
@@ -258,7 +262,9 @@ fun rememberSizedTrayIconPainter(path: String, width: Int, height: Int): BitmapP
 @Composable
 fun McpConfigurationDialog(
     isVisible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    scope: CoroutineScope,
+    analyticsService: GoogleAnalyticsService?
 ) {
     if (isVisible) {
         DialogWindow(
@@ -355,6 +361,13 @@ fun McpConfigurationDialog(
                             // Copy button
                             Button(
                                 onClick = {
+                                    scope.launch {
+                                        analyticsService?.trackUserAction(
+                                            action = "copy_mcp_config",
+                                            category = "ui_interaction",
+                                            label = "config_dialog"
+                                        )
+                                    }
                                     clipboardManager.setText(AnnotatedString(mcpConfig))
                                     logger.info { "MCP configuration copied to clipboard" }
                                     onDismiss()
@@ -396,7 +409,9 @@ fun McpConfigurationDialog(
 @Composable
 fun LogViewerDialog(
     isVisible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    scope: CoroutineScope,
+    analyticsService: GoogleAnalyticsService?
 ) {
     if (isVisible) {
         DialogWindow(
@@ -555,7 +570,16 @@ fun LogViewerDialog(
                             ) {
                                 // Refresh button
                                 IconButton(
-                                    onClick = { refreshLogs() },
+                                    onClick = {
+                                        scope.launch {
+                                            analyticsService?.trackUserAction(
+                                                action = "refresh_logs",
+                                                category = "ui_interaction",
+                                                label = "log_viewer"
+                                            )
+                                        }
+                                        refreshLogs()
+                                    },
                                     colors = IconButtonDefaults.iconButtonColors(
                                         contentColor = if (isDarkTheme) Color.White else Color(0xFF333333)
                                     )
@@ -568,7 +592,16 @@ fun LogViewerDialog(
                                 
                                 // Clear logs button
                                 IconButton(
-                                    onClick = { clearLogs() },
+                                    onClick = {
+                                        scope.launch {
+                                            analyticsService?.trackUserAction(
+                                                action = "clear_logs",
+                                                category = "ui_interaction",
+                                                label = "log_viewer"
+                                            )
+                                        }
+                                        clearLogs()
+                                    },
                                     colors = IconButtonDefaults.iconButtonColors(
                                         contentColor = if (isDarkTheme) Color.White else Color(0xFF333333)
                                     )
@@ -581,7 +614,16 @@ fun LogViewerDialog(
                                 
                                 // Copy logs button
                                 IconButton(
-                                    onClick = { copyLogs() },
+                                    onClick = {
+                                        scope.launch {
+                                            analyticsService?.trackUserAction(
+                                                action = "copy_logs",
+                                                category = "ui_interaction",
+                                                label = "log_viewer"
+                                            )
+                                        }
+                                        copyLogs()
+                                    },
                                     colors = IconButtonDefaults.iconButtonColors(
                                         contentColor = if (isDarkTheme) Color.White else Color(0xFF333333)
                                     )
@@ -721,9 +763,48 @@ fun main() {
         val trayState = rememberTrayState()
         val scope = rememberCoroutineScope()
         
+        // Initialize Analytics
+        var analyticsService by remember { mutableStateOf<GoogleAnalyticsService?>(null) }
+        var crashHandler by remember { mutableStateOf<CrashHandler?>(null) }
+        
         // Check if it's first time launch and show tutorial
         LaunchedEffect(Unit) {
             logger.info { "Cursor Talk to Figma desktop application started" }
+            
+            // Initialize Analytics
+            try {
+                val analyticsConfig = AnalyticsConfig()
+                if (analyticsConfig.isConfigured()) {
+                    analyticsService = GoogleAnalyticsService(
+                        measurementId = analyticsConfig.measurementId,
+                        apiSecret = analyticsConfig.apiSecret,
+                        debugMode = analyticsConfig.debugMode
+                    )
+                    
+                    // Initialize crash handler if enabled
+                    if (analyticsConfig.crashReportingEnabled) {
+                        crashHandler = CrashHandler(
+                            analyticsService = analyticsService!!,
+                            appVersion = "1.0.5", // TODO: Get from build config
+                            userId = analyticsConfig.userId
+                        )
+                        logger.info { "Crash handler initialized" }
+                    }
+                    
+                    // Track app start
+                    analyticsService?.trackAppStart(
+                        appVersion = "1.0.5",
+                        osInfo = analyticsConfig.getOsInfo(),
+                        userId = analyticsConfig.userId
+                    )
+                    
+                    logger.info { "Analytics initialized successfully" }
+                } else {
+                    logger.warn { "Analytics not configured - skipping initialization" }
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "Failed to initialize analytics" }
+            }
             
             try {
                 val prefs = Preferences.userNodeForPackage(this@application::class.java)
@@ -768,16 +849,37 @@ fun main() {
                 
                 // MCP Configuration
                 Item("MCP Configuration", onClick = {
+                    scope.launch {
+                        analyticsService?.trackUserAction(
+                            action = "open_mcp_config",
+                            category = "ui_interaction",
+                            label = "tray_menu"
+                        )
+                    }
                     showMcpConfigDialog = true
                 })
                 
                 // View Logs
                 Item("View Logs", onClick = {
+                    scope.launch {
+                        analyticsService?.trackUserAction(
+                            action = "view_logs",
+                            category = "ui_interaction",
+                            label = "tray_menu"
+                        )
+                    }
                     showLogViewerDialog = true
                 })
 
                 // Tutorial
                 Item("Tutorial", onClick = {
+                    scope.launch {
+                        analyticsService?.trackUserAction(
+                            action = "view_tutorial",
+                            category = "ui_interaction",
+                            label = "tray_menu"
+                        )
+                    }
                     showTutorialDialog = true
                 })
                 
@@ -799,11 +901,22 @@ fun main() {
                                 
                                 if (ensurePortAvailable(wsPort)) {
                                     logger.info { "🚀 Creating WebSocket server..." }
+                                    val startTime = System.currentTimeMillis()
                                     val newWebSocketServer = WebSocketServer(wsPort)
                                     webSocketServer = newWebSocketServer
                                     newWebSocketServer.start()
+                                    val endTime = System.currentTimeMillis()
+                                    val startupTime = endTime - startTime
                                     websocketServerRunning = true
                                     logger.info { "✅ WebSocket server started successfully on port $wsPort" }
+                                    
+                                    // Track WebSocket server start with performance data
+                                    analyticsService?.trackUserAction(
+                                        action = "start_websocket_server",
+                                        category = "server_management",
+                                        label = "port_$wsPort",
+                                        value = startupTime.toInt()
+                                    )
                                     
                                     // Start MCP server with port cleanup
                                     val mcpPort = 3056
@@ -885,6 +998,13 @@ fun main() {
                         })
                     } else {
                         Item("Stop WebSocket Server", onClick = {
+                            scope.launch {
+                                analyticsService?.trackUserAction(
+                                    action = "stop_websocket_server",
+                                    category = "server_management",
+                                    label = "manual_stop"
+                                )
+                            }
                             try {
                                 webSocketServer?.stop()
                                 websocketServerRunning = false
@@ -905,10 +1025,21 @@ fun main() {
                                     
                                     if (ensurePortAvailable(mcpPort)) {
                                         logger.info { "🚀 Creating MCP server..." }
+                                        val startTime = System.currentTimeMillis()
                                         mcpServer = McpServer()
                                         mcpServer?.start()
+                                        val endTime = System.currentTimeMillis()
+                                        val startupTime = endTime - startTime
                                         mcpServerRunning = true
                                         logger.info { "✅ MCP server started successfully on http://localhost:$mcpPort/sse" }
+                                        
+                                        // Track MCP server start with performance data
+                                        analyticsService?.trackUserAction(
+                                            action = "start_mcp_server",
+                                            category = "server_management",
+                                            label = "port_$mcpPort",
+                                            value = startupTime.toInt()
+                                        )
                                     } else {
                                         logger.error { "❌ Failed to make port $mcpPort available for MCP server" }
                                     }
@@ -921,6 +1052,13 @@ fun main() {
                         })
                     } else {
                         Item("Stop MCP Server", onClick = {
+                            scope.launch {
+                                analyticsService?.trackUserAction(
+                                    action = "stop_mcp_server",
+                                    category = "server_management",
+                                    label = "manual_stop"
+                                )
+                            }
                             try {
                                 mcpServer?.stop()
                                 mcpServerRunning = false
@@ -936,6 +1074,13 @@ fun main() {
                 
                 // Emergency action
                 Item("Kill All Servers", onClick = {
+                    scope.launch {
+                        analyticsService?.trackUserAction(
+                            action = "kill_all_servers",
+                            category = "emergency_action",
+                            label = "force_stop"
+                        )
+                    }
                     try {
                         logger.info { "User requested to kill all servers" }
                         if (killAllServers()) {
@@ -955,6 +1100,13 @@ fun main() {
                 Separator()
                 
                 Item("Exit", onClick = {
+                    scope.launch {
+                        analyticsService?.trackUserAction(
+                            action = "app_exit",
+                            category = "app_lifecycle",
+                            label = "user_initiated"
+                        )
+                    }
                     try {
                         if (mcpServerRunning) {
                             mcpServer?.stop()
@@ -962,6 +1114,10 @@ fun main() {
                         if (websocketServerRunning) {
                             webSocketServer?.stop()
                         }
+                        
+                        // Cleanup analytics
+                        crashHandler?.cleanup()
+                        analyticsService?.close()
                     } catch (e: Exception) {
                         logger.error(e) { "Error stopping servers during exit" }
                     }
@@ -973,13 +1129,17 @@ fun main() {
         // MCP Configuration Dialog
         McpConfigurationDialog(
             isVisible = showMcpConfigDialog,
-            onDismiss = { showMcpConfigDialog = false }
+            onDismiss = { showMcpConfigDialog = false },
+            scope = scope,
+            analyticsService = analyticsService
         )
         
         // Log Viewer Dialog
         LogViewerDialog(
             isVisible = showLogViewerDialog,
-            onDismiss = { showLogViewerDialog = false }
+            onDismiss = { showLogViewerDialog = false },
+            scope = scope,
+            analyticsService = analyticsService
         )
 
         // Tutorial Dialog

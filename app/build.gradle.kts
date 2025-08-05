@@ -50,6 +50,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.4.11")
     // removed jansi library completely (solved signing issue)
     implementation("net.logstash.logback:logstash-logback-encoder:7.4") // JSON logging support
+    
+    // HTTP client for analytics
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // JSON support for analytics
+    implementation("org.json:json:20231013")
 
     // Test Dependencies
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
