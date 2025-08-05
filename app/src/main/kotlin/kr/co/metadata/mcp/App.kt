@@ -743,9 +743,15 @@ fun main() {
         var webSocketServer by remember { mutableStateOf<WebSocketServer?>(null) }
         var mcpServer by remember { mutableStateOf<McpServer?>(null) }
 
-        // Use different icons based on server status
+        // Use different icons based on server status and OS
         val anyServerRunning = websocketServerRunning || mcpServerRunning
-        val trayIconPath = if (anyServerRunning) "active_image.png" else "tray_icon.png"
+        val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+        val trayIconPath = when {
+            anyServerRunning && isWindows -> "active_image_alt.png"
+            anyServerRunning -> "active_image.png"
+            isWindows -> "tray_icon_alt.png"
+            else -> "tray_icon.png"
+        }
 
         Tray(
             icon = rememberSizedTrayIconPainter(trayIconPath, 128, 128),
