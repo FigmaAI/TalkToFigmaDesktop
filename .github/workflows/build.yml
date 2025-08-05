@@ -121,11 +121,19 @@ jobs:
         echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> $GITHUB_ENV
         echo "SIGNING_IDENTITY=${SIGNING_IDENTITY}" >> $GITHUB_ENV
       
-    - name: Notarize and Package
+    - name: Notarize and Package (Apple Silicon)
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         chmod +x scripts/notarize.sh
-        ./scripts/notarize.sh
+        # Build and notarize Apple Silicon version with clean
+        ./scripts/notarize.sh --clean
+        
+    - name: Build and Notarize Intel Mac version
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        chmod +x scripts/build-intel-mac.sh
+        # Build and notarize Intel Mac version (preserving existing ARM64 build)
+        ./scripts/build-intel-mac.sh
       
     - name: Build Unsigned DMG (Main Branch)
       if: github.ref == 'refs/heads/main'
@@ -136,8 +144,9 @@ jobs:
       run: |
         security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
       
-    - name: Rename DMG file with version
+    - name: Rename and prepare DMG files
       run: |
+        # 1. Rename Apple Silicon DMG file
         cd app/build/compose/binaries/main/dmg/
         original_file=$(find . -name "*.dmg" -type f | head -n 1)
         if [ -n "$original_file" ]; then
@@ -146,20 +155,55 @@ jobs:
           else
             version="v1.0.0-unsigned"
           fi
-          new_name="TalkToFigma-${version}.dmg"
-          mv "$original_file" "$new_name"
-          echo "Renamed DMG from '$original_file' to '$new_name'"
-          ls -la
+          # Keep original name format but add arm64 suffix if not already present
+          if [[ "$original_file" != *"-arm64.dmg"* ]]; then
+            arm64_name="${original_file%.dmg}-arm64.dmg"
+            mv "$original_file" "$arm64_name"
+            echo "Renamed ARM64 DMG to: $arm64_name"
+            ls -la
+          else
+            echo "ARM64 DMG already has correct suffix: $original_file"
+          fi
         else
-          echo "No DMG file found!"
+          echo "No ARM64 DMG file found!"
           ls -la
         fi
+        
+        # 2. Rename Intel DMG file (for tagged releases only)
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          cd ../../intel/dmg/
+          intel_file=$(find . -name "*-intel.dmg" -type f | head -n 1)
+          if [ -n "$intel_file" ]; then
+            # Keep the original format but ensure it has -intel suffix
+            if [[ "$intel_file" == *"-intel.dmg" ]]; then
+              echo "Intel DMG already has correct format: $intel_file"
+              ls -la
+            else
+              # This should not happen with our new scripts, but just in case
+              intel_name="${intel_file%.dmg}-intel.dmg"
+              mv "$intel_file" "$intel_name"
+              echo "Renamed Intel DMG to: $intel_name"
+              ls -la
+            fi
+          else
+            echo "No Intel DMG file found!"
+            ls -la
+          fi
+        fi
       
-    - name: Upload macOS artifacts
+    - name: Upload macOS ARM64 artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: macos-dmg
-        path: app/build/compose/binaries/main/dmg/
+        name: macos-arm64-dmg
+        path: app/build/compose/binaries/main/dmg/*-arm64.dmg
+        retention-days: 30
+        
+    - name: Upload macOS Intel artifacts
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-intel-dmg
+        path: app/build/compose/binaries/intel/dmg/*-intel.dmg
         retention-days: 30
 
   package-windows:
@@ -211,7 +255,7 @@ jobs:
           version="v1.0.0"
         fi
         
-        # MSI file name change
+        # Change MSI file name
         cd app/build/compose/binaries/main/msi/
         msi_file=$(find . -name "*.msi" -type f | head -n 1)
         if [ -n "$msi_file" ]; then
@@ -220,7 +264,7 @@ jobs:
           echo "Renamed MSI to: $new_msi"
         fi
         
-        # EXE file name change
+        # Change EXE file name
         cd ../exe/
         exe_file=$(find . -name "*.exe" -type f | head -n 1)
         if [ -n "$exe_file" ]; then
@@ -255,14 +299,17 @@ jobs:
       
     - name: Download all artifacts
       uses: actions/download-artifact@v4
+      with:
+        path: artifacts
       
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          macos-dmg/*.dmg
-          windows-packages/**/*.msi
-          windows-packages/**/*.exe
+          artifacts/macos-arm64-dmg/*-arm64.dmg
+          artifacts/macos-intel-dmg/*-intel.dmg
+          artifacts/windows-packages/**/*.msi
+          artifacts/windows-packages/**/*.exe
         draft: false
         prerelease: false
         generate_release_notes: true
@@ -272,8 +319,11 @@ jobs:
           ## TalkToFigma Desktop Release
           
           ### 📦 Download
-          - **macOS**: `TalkToFigma-${{ github.ref_name }}.dmg` (Signed and Notarized for tagged releases)
-          - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe` 
+          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon M1/M2/M3 Macs)
+          - **macOS Intel**: `*-intel.dmg` (Intel-based Macs)
+          - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe`
+          
+          All macOS builds are signed and notarized for maximum security. 
           
           ### 🚀 How to install
           **macOS**: 

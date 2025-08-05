@@ -5,18 +5,72 @@
 # This script uses Apple's latest notarization tool and a robust workflow.
 # It's fully automated and uses environment variables from direnv.
 #
-# Usage: ./scripts/notarize.sh
+# Usage: ./scripts/notarize.sh [--intel]
+#        --intel : Build and notarize for Intel Mac (optional)
 # =================================================================
 
 set -e # Exit immediately if a command exits with a non-zero status.
 
-echo "🚀 Starting notarization process (using notarytool)..."
+# Process command line arguments
+BUILD_INTEL=false
+SHOULD_CLEAN=false
+for arg in "$@"; do
+  case $arg in
+    --intel)
+      BUILD_INTEL=true
+      shift
+      ;;
+    --clean)
+      SHOULD_CLEAN=true
+      shift
+      ;;
+    *)
+      # Ignore unknown options
+      shift
+      ;;
+  esac
+done
+
+# Display guidance for Intel Mac build
+if [ "$BUILD_INTEL" = true ]; then
+    echo "🚀 Starting notarization process for Intel Mac (using notarytool)..."
+else
+    echo "🚀 Starting notarization process for Apple Silicon Mac (using notarytool)..."
+    echo "   For Intel Mac build, use: ./scripts/notarize.sh --intel"
+    echo "   Or use: ./scripts/build-intel-mac.sh (after Apple Silicon build)"
+    echo "   To clean before building, add: --clean"
+    echo ""
+    
+    # Only run clean if explicitly requested
+    if [ "$SHOULD_CLEAN" = true ]; then
+        echo "🧹 Cleaning previous build as requested..."
+        ./gradlew clean
+        echo "✅ Clean completed"
+    fi
+fi
 
 # --- Configuration ---
 APP_NAME="Cursor Talk to Figma desktop"
-# The .app bundle is located in the 'app' directory, not 'dmg'
-APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
-BUILD_DIR="app/build/manual_notarization"
+# Use the path from INTEL_APP environment variable if set (when called from build-intel-mac.sh)
+# 그렇지 않으면 기본 경로 사용
+if [ -n "$INTEL_APP" ] && [ -d "$INTEL_APP" ]; then
+    echo "ℹ️ Using Intel build app path: $INTEL_APP"
+    APP_PATH="$INTEL_APP"
+    IS_INTEL=true
+else
+    # The .app bundle is located in the 'app' directory, not 'dmg'
+    APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
+    IS_INTEL=false
+    echo "ℹ️ Using default app path: $APP_PATH"
+fi
+
+# Change directory name for Intel version
+if [ "$IS_INTEL" = true ]; then
+    BUILD_DIR="app/build/intel_notarization"
+else
+    BUILD_DIR="app/build/manual_notarization"
+fi
+
 ZIP_PATH="${BUILD_DIR}/${APP_NAME}.zip"
 APP_VERSION=$(cd app && ../gradlew -q printVersion)
 
@@ -32,10 +86,14 @@ echo "   - App Path: $APP_PATH"
 echo "   - Team ID: $APPLE_TEAM_ID"
 echo ""
 
-# --- 1. Build and sign the app ---
-echo "🔨 [Step 1/5] Building the app using './gradlew createDistributable'..."
-# We ONLY run createDistributable which creates the .app, not packageDmg
-./gradlew createDistributable
+# --- 1. Check if app exists or build it if needed ---
+if [ -d "$APP_PATH" ]; then
+    echo "🔍 [Step 1/5] App already exists at: $APP_PATH. Skipping build step."
+else
+    echo "🔨 [Step 1/5] Building the app using './gradlew createDistributable'..."
+    # We ONLY run createDistributable which creates the .app, not packageDmg
+    ./gradlew createDistributable
+fi
 
 if [ ! -d "$APP_PATH" ]; then
     echo "❌ Error: App not found at path: $APP_PATH. The build might have failed or the path changed."
@@ -118,9 +176,20 @@ xcrun stapler validate "$APP_PATH"
 echo "✅ Stapling complete and verified."
 
 # --- Generate DMG after notarization if needed ---
-echo "💿 Creating DMG after successful notarization..."
-./gradlew packageDmg
-echo "✅ DMG created at: app/build/compose/binaries/main/dmg/"
+if [ "$IS_INTEL" = true ]; then
+    echo "💿 Skipping Intel DMG creation as it was already created in build-intel-mac.sh"
+    # For Intel builds, DMG file was already created, so don't create it again here
+    DMG_PATH=$(find "app/build/compose/binaries/intel/dmg" -name "*-intel.dmg" | head -1)
+    if [ -n "$DMG_PATH" ]; then
+        echo "✅ Intel-compatible DMG location: $DMG_PATH"
+    else
+        echo "⚠️ Intel DMG file not found."
+    fi
+else
+    echo "💿 Creating DMG after successful notarization..."
+    ./gradlew packageDmg
+    echo "✅ DMG created at: app/build/compose/binaries/main/dmg/"
+fi
 
 # --- Cleanup ---
 echo "🧹 Cleaning up temporary zip file..."
@@ -128,5 +197,9 @@ rm "$ZIP_PATH"
 
 echo ""
 echo "🎉 Notarization process finished successfully!"
-echo "    You can now find the distributable DMG in: app/build/compose/binaries/main/dmg/"
-echo "    To verify the app inside, run: spctl -a -vv '$APP_PATH'" 
+if [ "$IS_INTEL" = true ]; then
+    echo "    Intel-compatible DMG file can be found at: app/build/compose/binaries/intel/dmg/"
+else
+    echo "    ARM64-compatible DMG file can be found at: app/build/compose/binaries/main/dmg/"
+fi
+echo "    To verify app signing, run the following command: spctl -a -vv '$APP_PATH'" 
