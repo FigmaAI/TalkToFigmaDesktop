@@ -357,6 +357,7 @@ fun McpConfigurationDialog(
                                 onClick = {
                                     clipboardManager.setText(AnnotatedString(mcpConfig))
                                     logger.info { "MCP configuration copied to clipboard" }
+                                    onDismiss()
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (isDarkTheme) Color(0xFF007ACC) else Color(0xFF0078D4)
