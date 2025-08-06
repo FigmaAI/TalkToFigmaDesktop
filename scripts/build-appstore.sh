@@ -38,9 +38,28 @@ echo "   - Archive Path: $ARCHIVE_PATH"
 echo ""
 
 # --- Step 1: Build the app without automatic signing ---
-echo "🔨 [Step 1/6] Building the app without automatic signing..."
+echo "🔨 [Step 1/6] Building universal binary for App Store..."
 export BUILD_FOR_APP_STORE=true
-./gradlew :app:createDistributable
+
+# Check current architecture
+ARCH=$(uname -m)
+echo "🖥️  Current architecture: $ARCH"
+
+# Universal binary support with proper JVM settings
+if [ "$ARCH" == "arm64" ]; then
+    echo "🚀 Building universal binary on Apple Silicon..."
+    # Use Intel JDK for proper Intel compatibility if available
+    INTEL_JDK_PATH="$HOME/.jdks/jdk-17.0.9-intel"
+    if [ -d "$INTEL_JDK_PATH" ]; then
+        echo "📱 Using Intel JDK for better Intel compatibility: $INTEL_JDK_PATH"
+        export INTEL_JAVA_HOME="$INTEL_JDK_PATH"
+    else
+        echo "⚠️  Intel JDK not found. Using current JDK for universal build."
+    fi
+fi
+
+# Build with universal binary support
+./gradlew :app:createDistributable -Dcompose.desktop.mac.archs=x86_64,arm64 -Dcompose.desktop.mac.minSdkVersion=10.15
 echo "✅ App built successfully at: $APP_PATH"
 
 # --- Step 2: Embed the provisioning profile ---
@@ -121,8 +140,8 @@ cat > "$ARCHIVE_PATH/Info.plist" << EOF
         <string>Applications/${APP_NAME}.app</string>
         <key>Architectures</key>
         <array>
-            <string>arm64</string>
             <string>x86_64</string>
+            <string>arm64</string>
         </array>
         <key>CFBundleIdentifier</key>
         <string>${BUNDLE_ID}</string>
