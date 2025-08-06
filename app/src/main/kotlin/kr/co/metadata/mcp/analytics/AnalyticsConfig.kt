@@ -11,14 +11,9 @@ class AnalyticsConfig {
     private val logger = KotlinLogging.logger {}
     private val config: Config = ConfigFactory.load("analytics.properties")
 
-    val measurementId: String = resolveEnvironmentVariable(config.getString("analytics.measurement.id"))
+    val measurementId: String = config.getString("analytics.measurement.id")
     val apiSecret: String? = if (config.hasPath("analytics.api.secret")) {
-        val secret = config.getString("analytics.api.secret")
-        if (secret.startsWith("\${") && secret.endsWith("}")) {
-            resolveEnvironmentVariable(secret)
-        } else {
-            secret
-        }
+        config.getString("analytics.api.secret")
     } else null
     
     val debugMode: Boolean = config.getBoolean("analytics.debug.mode")
@@ -58,11 +53,9 @@ class AnalyticsConfig {
      */
     fun isConfigured(): Boolean {
         return measurementId.isNotBlank() && 
-               measurementId != "G-XXXXXXXXXX" && 
-               !measurementId.startsWith("\${") &&
+               measurementId != "G-XXXXXXXXXX" &&
                apiSecret != null && 
-               apiSecret.isNotBlank() &&
-               !apiSecret.startsWith("\${")
+               apiSecret.isNotBlank()
     }
 
     /**
@@ -73,22 +66,5 @@ class AnalyticsConfig {
         val osVersion = System.getProperty("os.version")
         val arch = System.getProperty("os.arch")
         return "$os $osVersion ($arch)"
-    }
-
-    /**
-     * Resolve environment variable from ${VAR_NAME} format
-     */
-    private fun resolveEnvironmentVariable(value: String): String {
-        if (value.startsWith("\${") && value.endsWith("}")) {
-            val envVarName = value.substring(2, value.length - 1)
-            val envValue = System.getenv(envVarName)
-            if (envValue != null) {
-                return envValue
-            } else {
-                logger.warn { "Environment variable $envVarName not found, using default value" }
-                return value
-            }
-        }
-        return value
     }
 } 

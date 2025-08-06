@@ -14,9 +14,9 @@ set -e # Exit immediately if a command exits with a non-zero status.
 echo "🚀 Starting App Store build and archive process..."
 
 # --- Configuration ---
-APP_NAME="TalkToFigma Desktop"
+APP_NAME="Cursor Talk to Figma desktop"
 APP_PATH="app/build/compose/binaries/main/app/${APP_NAME}.app"
-ARCHIVE_NAME="TalkToFigma Desktop"./ㅎ
+ARCHIVE_NAME="Cursor Talk to Figma desktop"
 ARCHIVE_PATH="app/build/compose/binaries/main/archive/${ARCHIVE_NAME}.xcarchive"
 PROVISIONING_PROFILE="TalkToFigma_App_Store.provisionprofile"
 ENTITLEMENTS="entitlements.plist"
