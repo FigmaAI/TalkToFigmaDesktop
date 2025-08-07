@@ -73,18 +73,14 @@ class GoogleAnalyticsService(
                 .post(eventData.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
-            // Debug logging
-            logger.info { "Sending analytics event to: $endpoint" }
-            logger.info { "Event data: ${eventData}" }
-
+            // Minimal logging
+            logger.debug { "Sending analytics event: $eventName" }
+            
             val response = client.newCall(request).execute()
             val success = response.isSuccessful
             
-            if (success) {
-                logger.info { "Analytics event sent successfully: $eventName" }
-            } else {
-                logger.warn { "Failed to send analytics event: ${response.code} - ${response.message}" }
-                logger.warn { "Response body: ${response.body?.string()}" }
+            if (!success) {
+                logger.warn { "Failed to send analytics event: ${response.code}" }
             }
             
             response.close()
