@@ -58,9 +58,63 @@ if [ "$ARCH" == "arm64" ]; then
     fi
 fi
 
-# Build with universal binary support
-./gradlew :app:createDistributable -Dcompose.desktop.mac.archs=x86_64,arm64 -Dcompose.desktop.mac.minSdkVersion=10.15
+# === Gradle Build Configuration ===
+# JDK path, architecture and JavaFX related system properties
+GRADLE_PROPS=(
+  "-Dcompose.desktop.mac.archs=x86_64,arm64"
+  "-Dcompose.desktop.mac.minSdkVersion=10.15" 
+  "-Dcompose.desktop.verbose=true"
+  "-Djavafx.verbose=true"
+  "-Dprism.verbose=true"
+  "-Djavafx.macosx.embedded=true"
+  "-Dapple.awt.UIElement=true"
+  "-Dorg.gradle.parallel=true"
+)
+
+# JVM optimization options
+JVM_OPTS=(
+  "-Dkotlin.daemon.jvmargs=-Xmx2g -XX:+UseParallelGC -Djavafx.verbose=true -Dprism.verbose=true"
+  "-Dorg.gradle.jvmargs=-Xmx2g -XX:+UseParallelGC -Djavafx.verbose=true -Dprism.verbose=true -Dapple.awt.UIElement=true -Djavafx.macosx.embedded=true"
+)
+
+echo "🚀 Starting Universal App build (x86_64, arm64)..."
+
+# Execute Gradle build
+./gradlew :app:createDistributable "${GRADLE_PROPS[@]}" "${JVM_OPTS[@]}"
+
+BUILD_RESULT=$?
+if [ $BUILD_RESULT -ne 0 ]; then
+  echo "❌ Build failed! Exiting."
+  exit $BUILD_RESULT
+fi
+
 echo "✅ App built successfully at: $APP_PATH"
+
+# Verify JavaFX libraries
+echo "🔍 Verifying JavaFX libraries inclusion..."
+
+# List of core JavaFX libraries
+CORE_LIBS=("libprism_es2.dylib" "libprism_sw.dylib" "libglass.dylib")
+MISSING_LIBS=()
+
+for lib in "${CORE_LIBS[@]}"; do
+  LIB_PATH=$(find "${APP_PATH}" -name "$lib" -type f)
+  if [ -z "$LIB_PATH" ]; then
+    MISSING_LIBS+=("$lib")
+  else
+    echo "  ✓ $lib found: $LIB_PATH"
+  fi
+done
+
+if [ ${#MISSING_LIBS[@]} -gt 0 ]; then
+  echo "⚠️  Warning: The following JavaFX libraries could not be found:"
+  for lib in "${MISSING_LIBS[@]}"; do
+    echo "  - $lib"
+  done
+  echo "  Video playback and some UI features may not work."
+else
+  echo "✅ All required JavaFX libraries are included."
+fi
 
 # --- Step 2: Embed the provisioning profile ---
 echo "📄 [Step 2/6] Embedding provisioning profile..."
@@ -75,6 +129,53 @@ JSPAWNHELPER_PATH=$(find "${APP_PATH}" -name "jspawnhelper" -type f)
 if [ -n "$JSPAWNHELPER_PATH" ]; then
     echo "   Signing jspawnhelper: $JSPAWNHELPER_PATH"
     codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY_APPSTORE" "$JSPAWNHELPER_PATH"
+fi
+
+# Function to efficiently sign binary files
+sign_binary() {
+    local file="$1"
+    echo "   Signing: $file"
+    codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY_APPSTORE" "$file"
+    return $?
+}
+
+echo "🔏 Signing all binary files in the app bundle..."
+
+# 1. Sign all native library files (.dylib, .jnilib, .so)
+echo "   - Signing native library files..."
+find "${APP_PATH}" -type f \( -name "*.dylib" -o -name "*.jnilib" -o -name "*.so" \) | while read -r binary; do
+    sign_binary "$binary"
+done
+
+# 2. Sign all JAR files (especially JavaFX related)
+echo "   - Signing JAR files..."
+find "${APP_PATH}" -type f -name "*.jar" | while read -r jar; do
+    sign_binary "$jar"
+done
+
+# 3. Sign executable binary files
+echo "   - Signing executable files..."
+find "${APP_PATH}" -type f -perm +111 | grep -v "\(dylib\|jnilib\|so\|jar\)$" | while read -r executable; do
+    sign_binary "$executable"
+done
+
+# 4. Verify critical JavaFX related files
+echo "🔍 Verifying JavaFX libraries..."
+JFX_CRITICAL_LIBS=("libprism_es2.dylib" "libprism_sw.dylib" "libglass.dylib")
+JFX_FOUND=false
+
+for lib in "${JFX_CRITICAL_LIBS[@]}"; do
+    LIB_PATH=$(find "${APP_PATH}" -name "$lib" -type f)
+    if [ -n "$LIB_PATH" ]; then
+        JFX_FOUND=true
+        echo "   ✅ Critical JavaFX library found and signed: $lib"
+    else
+        echo "   ⚠️  Warning: Critical JavaFX library not found: $lib"
+    fi
+done
+
+if [ "$JFX_FOUND" = false ]; then
+    echo "⚠️  Warning: JavaFX core libraries not found. Video playback may not work."
 fi
 
 # Sign any other executables in the runtime directory
@@ -101,14 +202,40 @@ echo "✅ application-identifier added to Info.plist: $APP_IDENTIFIER"
 /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption NO" "$INFO_PLIST"
 echo "✅ ITSAppUsesNonExemptEncryption set to NO in Info.plist"
 
+# Add JavaFX-related properties if needed
+/usr/libexec/PlistBuddy -c "Add :javafx.verbose bool true" "$INFO_PLIST" 2>/dev/null || \
+/usr/libexec/PlistBuddy -c "Set :javafx.verbose true" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Add :javafx.macosx.embedded bool true" "$INFO_PLIST" 2>/dev/null || \
+/usr/libexec/PlistBuddy -c "Set :javafx.macosx.embedded true" "$INFO_PLIST"
+echo "✅ JavaFX properties added to Info.plist"
+
 # --- Step 5: Sign the app bundle ---
 echo "🔏 [Step 5/6] Signing the app with identity: $SIGNING_IDENTITY_APPSTORE"
+
+# First sign the app bundle with a shallow signature
+echo "   - Signing app bundle..."
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY_APPSTORE" "$APP_PATH"
 
-# Verify the signing
-echo "🔍 Verifying signature..."
+# Signature verification (standard verification)
+echo "🔍 Performing basic signature verification..."
 codesign --verify --verbose "$APP_PATH"
-echo "✅ App signed successfully for App Store distribution!"
+
+# Deep verification - Verify all signatures before App Store submission
+echo "🔬 Performing deep signature verification (--deep)..."
+codesign --verify --verbose --deep "$APP_PATH"
+DEEP_VERIFY_RESULT=$?
+
+if [ $DEEP_VERIFY_RESULT -eq 0 ]; then
+    echo "✅ App signature verification complete: All signatures are valid!"
+else
+    echo "⚠️  Warning: There may be issues with deep signature verification. This might cause problems during App Store submission."
+fi
+
+# spctl verification - System policy verification
+echo "🔒 Performing system policy verification..."
+spctl --assess --verbose=4 --type execute "$APP_PATH" || echo "⚠️  spctl verification warning: This may not be an issue for App Store submission."
+
+echo "✅ App signing complete!"
 
 # --- Step 6: Create Xcode Archive ---
 echo "📦 [Step 6/6] Creating Xcode Archive..."
