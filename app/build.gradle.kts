@@ -6,12 +6,15 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
-    id("org.openjfx.javafxplugin") version "0.1.0"
+    id("org.openjfx.javafxplugin") version "0.1.1"
 }
 
 javafx {
-    version = "21.0.2"
+    // JavaFX 버전을 JDK 21에 맞게 조정
+    version = "21"
     modules("javafx.controls", "javafx.media", "javafx.swing")
+    // Liberica Full JDK를 사용할 경우 JavaFX가 내장되어 있음을 명시
+    configuration = "compileOnly"
 }
 
 group = "kr.co.metadata.mcp"
