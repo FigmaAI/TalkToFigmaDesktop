@@ -18,7 +18,7 @@ env:
 jobs:
   # We run tests on Ubuntu but don't create Linux packages - focusing only on Windows and Mac builds
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macos]
     
     steps:
     - name: Checkout code
@@ -65,7 +65,7 @@ jobs:
         ./gradlew test --no-daemon
 
   package-mac:
-    runs-on: macos-latest
+    runs-on: [self-hosted, macos]
     needs: test
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
