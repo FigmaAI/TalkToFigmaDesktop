@@ -3,7 +3,7 @@
 
 [versions]
 kotlin = "2.2.0"
-compose = "1.8.0"
+compose = "1.8.1"
 compose-compiler = "1.5.15"
 kotlinx-serialization = "1.7.3"
 ktor = "3.0.1"

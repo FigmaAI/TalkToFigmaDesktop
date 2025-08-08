@@ -51,8 +51,8 @@
         <appender-ref ref="FILE"/>
     </logger>
 
-    <!-- Google Analytics logger set to ERROR level to minimize logs -->
-    <logger name="kr.co.metadata.mcp.analytics.GoogleAnalyticsService" level="ERROR" additivity="false">
+    <!-- Google Analytics logger set to DEBUG level for testing -->
+    <logger name="kr.co.metadata.mcp.analytics.GoogleAnalyticsService" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_CONSOLE"/>
         <appender-ref ref="FILE"/>
     </logger>
