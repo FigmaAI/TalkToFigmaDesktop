@@ -17,15 +17,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Liberica JDK 21 Full with JavaFX
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'liberica'
-        java-version: '21.0.7' # Specific version to avoid extraction issues
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-        cache: 'gradle'
-        check-latest: false # Don't try to get latest version
-      
     - name: Display JDK information
       run: |
         echo "==== JDK Information ===="
@@ -33,16 +24,6 @@ jobs:
         echo "JDK path: $JAVA_HOME"
         echo "========================="
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-          
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       

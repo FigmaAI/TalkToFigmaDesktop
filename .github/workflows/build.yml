@@ -39,15 +39,7 @@ jobs:
         # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
         sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Make gradlew executable
       run: chmod +x ./gradlew
@@ -81,15 +73,7 @@ jobs:
         # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
         sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Make gradlew executable
       run: chmod +x ./gradlew
@@ -239,15 +223,7 @@ jobs:
         # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
         sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Build MSI package
       run: ./gradlew packageMsi --no-daemon
