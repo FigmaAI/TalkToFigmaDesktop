@@ -10,9 +10,11 @@ plugins {
 }
 
 // Explicitly specify JavaFX settings
+val jfxVersion = "21.0.2" // Declare JavaFX version as a constant to prevent it from using project version
+
 javafx {
-    // Explicitly set version to avoid using project version
-    version = "21.0.2"
+    // CRITICAL: Use the explicit version constant, not a string literal
+    version = jfxVersion
     
     // Explicitly specify required modules
     modules = listOf("javafx.controls", "javafx.media", "javafx.swing")
