@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
-    id("org.openjfx.javafxplugin") version "0.1.1"
+    id("org.openjfx.javafxplugin") version "0.0.14"
 }
 
 javafx {
