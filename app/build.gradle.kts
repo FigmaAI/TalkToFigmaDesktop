@@ -1,3 +1,6 @@
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JvmVendorSpec
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -15,7 +18,10 @@ group = "kr.co.metadata.mcp"
 version = "1.0.5" // App version
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.BELLSOFT)
+    }
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -158,9 +164,7 @@ compose.desktop {
                 console = false
             }
             
-            linux {
-                iconFile.set(project.file("src/main/resources/icon.png"))
-            }
+            // Linux is not supported
         }
     }
 }

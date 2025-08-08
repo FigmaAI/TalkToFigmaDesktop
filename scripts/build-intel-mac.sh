@@ -48,24 +48,24 @@ check_rosetta() {
     fi
 }
 
-# Download Intel JDK (if not already downloaded)
+# Download Intel JDK Full with JavaFX (if not already downloaded)
 download_intel_jdk() {
     # JDK installation path
     JDK_INSTALL_DIR="$HOME/.jdks"
     mkdir -p "$JDK_INSTALL_DIR"
     
-    # Set Intel JDK path
-    INTEL_JDK_VERSION="17.0.9"
-    INTEL_JDK_DIR="$JDK_INSTALL_DIR/jdk-$INTEL_JDK_VERSION-intel"
+    # Set Intel JDK Full path
+    INTEL_JDK_VERSION="21.0.1"
+    INTEL_JDK_DIR="$JDK_INSTALL_DIR/jdk-$INTEL_JDK_VERSION-full-intel"
     
     # Check if JDK is already downloaded
     if [ -d "$INTEL_JDK_DIR" ]; then
-        echo "Intel JDK already exists at $INTEL_JDK_DIR"
+        echo "Intel JDK Full already exists at $INTEL_JDK_DIR"
     else
-        echo "Downloading Intel JDK..."
-        # JDK download URL (Azul Zulu JDK - for Intel Mac)
-        JDK_URL="https://cdn.azul.com/zulu/bin/zulu17.46.19-ca-jdk17.0.9-macosx_x64.tar.gz"
-        JDK_TAR="$JDK_INSTALL_DIR/intel-jdk.tar.gz"
+        echo "Downloading Intel JDK Full with JavaFX..."
+        # JDK download URL (BellSoft Liberica JDK Full with JavaFX - for Intel Mac)
+        JDK_URL="https://download.bell-sw.com/java/21.0.1+12/bellsoft-jdk21.0.1+12-macos-amd64-full.tar.gz"
+        JDK_TAR="$JDK_INSTALL_DIR/intel-jdk-full.tar.gz"
         
         # Download JDK
         curl -L "$JDK_URL" -o "$JDK_TAR"
@@ -75,25 +75,25 @@ download_intel_jdk() {
         tar -xf "$JDK_TAR" -C "$JDK_INSTALL_DIR"
         
         # Find the extracted directory name
-        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "zulu*" -type d | head -1)
+        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "jdk-21.0.1*-full" -type d | head -1)
         
         if [ -n "$EXTRACTED_DIR" ]; then
             # Move extracted files to the desired directory
             mv "$EXTRACTED_DIR"/* "$INTEL_JDK_DIR"
             rmdir "$EXTRACTED_DIR"
             rm "$JDK_TAR"
-            echo "Intel JDK downloaded and installed to $INTEL_JDK_DIR"
+            echo "Intel JDK Full downloaded and installed to $INTEL_JDK_DIR"
         else
-            echo "Failed to extract JDK"
+            echo "Failed to extract JDK Full"
             exit 1
         fi
     fi
     
-    echo "Using Intel JDK at: $INTEL_JDK_DIR"
+    echo "Using Intel JDK Full with JavaFX at: $INTEL_JDK_DIR"
     export INTEL_JDK_PATH="$INTEL_JDK_DIR"
 }
 
-# Run build with Intel JDK
+# Run build with Intel JDK Full (with JavaFX)
 build_with_intel_jdk() {
     # Create temporary build directory and result directory
     mkdir -p "$TEMP_BUILD_DIR" "$INTEL_BUILD_DIR/dmg"
