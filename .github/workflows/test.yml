@@ -17,11 +17,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Amazon Corretto JDK 21
+    - name: Set up Liberica JDK 21 Full
       uses: actions/setup-java@v4
       with:
-        distribution: 'corretto'
+        distribution: 'liberica'
         java-version: '21'
+        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
         
     - name: Cache Gradle dependencies
       uses: actions/cache@v4
