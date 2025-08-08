@@ -16,18 +16,20 @@ env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 jobs:
-  build:
+  # We run tests on Ubuntu but don't create Linux packages - focusing only on Windows and Mac builds
+  test:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Amazon Corretto JDK 21
+    - name: Set up Liberica JDK 21 Full
       uses: actions/setup-java@v4
       with:
-        distribution: 'corretto'
+        distribution: 'liberica'
         java-version: '21'
+        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
         
     - name: Set version from tag
       if: startsWith(github.ref, 'refs/tags/v')
@@ -52,28 +54,22 @@ jobs:
       
     - name: Run tests
       run: ./gradlew test --no-daemon
-      
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: app/build/
-        retention-days: 7
 
   package-mac:
     runs-on: macos-latest
-    needs: build
+    needs: test
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Amazon Corretto JDK 21
+    - name: Set up Liberica JDK 21 Full
       uses: actions/setup-java@v4
       with:
-        distribution: 'corretto'
+        distribution: 'liberica'
         java-version: '21'
+        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
         
     - name: Set version from tag
       if: startsWith(github.ref, 'refs/tags/v')
@@ -121,19 +117,20 @@ jobs:
         echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> $GITHUB_ENV
         echo "SIGNING_IDENTITY=${SIGNING_IDENTITY}" >> $GITHUB_ENV
       
-    - name: Notarize and Package (Apple Silicon)
+    - name: Build and notarize Mac packages (ARM64 and Intel)
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
-        chmod +x scripts/notarize.sh
-        # Build and notarize Apple Silicon version with clean
+        # Make scripts executable
+        chmod +x scripts/notarize.sh scripts/build-intel-mac.sh
+        
+        echo "Step 1: Building and notarizing Apple Silicon (ARM64) version"
         ./scripts/notarize.sh --clean
         
-    - name: Build and Notarize Intel Mac version
-      if: startsWith(github.ref, 'refs/tags/v')
-      run: |
-        chmod +x scripts/build-intel-mac.sh
-        # Build and notarize Intel Mac version (preserving existing ARM64 build)
+        echo "Step 2: Building and notarizing Intel Mac version"
+        # The script detects and preserves the existing ARM64 build
         ./scripts/build-intel-mac.sh
+        
+        echo "✅ Both ARM64 and Intel Mac builds completed and notarized"
       
     - name: Build Unsigned DMG (Main Branch)
       if: github.ref == 'refs/heads/main'
@@ -208,18 +205,19 @@ jobs:
 
   package-windows:
     runs-on: windows-latest
-    needs: build
+    needs: test
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Amazon Corretto JDK 21
+    - name: Set up Liberica JDK 21 Full
       uses: actions/setup-java@v4
       with:
-        distribution: 'corretto'
+        distribution: 'liberica'
         java-version: '21'
+        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
         
     - name: Set version from tag
       if: startsWith(github.ref, 'refs/tags/v')
@@ -287,7 +285,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [package-mac, package-windows]
+    needs: [test, package-mac, package-windows]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -323,7 +321,7 @@ jobs:
           - **macOS Intel**: `*-intel.dmg` (Intel-based Macs)
           - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe`
           
-          All macOS builds are signed and notarized for maximum security. 
+          All builds include built-in JavaFX support and macOS builds are signed and notarized for maximum security.
           
           ### 🚀 How to install
           **macOS**: 
