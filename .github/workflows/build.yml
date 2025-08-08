@@ -2,7 +2,6 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main, internal-release ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
@@ -52,7 +51,7 @@ jobs:
   package-mac:
     runs-on: [self-hosted, macos]
     needs: test
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
@@ -118,10 +117,6 @@ jobs:
         
         echo "✅ Both ARM64 and Intel Mac builds completed and notarized"
       
-    - name: Build Unsigned DMG (Main Branch)
-      if: github.ref == 'refs/heads/main'
-      run: ./gradlew packageDmg --no-daemon -PsigningEnabled=false
-      
     - name: Clean up keychain
       if: always() && startsWith(github.ref, 'refs/tags/v')
       run: |
@@ -133,11 +128,7 @@ jobs:
         cd app/build/compose/binaries/main/dmg/
         original_file=$(find . -name "*.dmg" -type f | head -n 1)
         if [ -n "$original_file" ]; then
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version=${GITHUB_REF#refs/tags/}
-          else
-            version="v1.0.0-unsigned"
-          fi
+          version=${GITHUB_REF#refs/tags/}
           # Keep original name format but add arm64 suffix if not already present
           if [[ "$original_file" != *"-arm64.dmg"* ]]; then
             arm64_name="${original_file%.dmg}-arm64.dmg"
@@ -152,7 +143,7 @@ jobs:
           ls -la
         fi
         
-        # 2. Rename Intel DMG file (for tagged releases only)
+        # 2. Rename Intel DMG file
         if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           cd ../../intel/dmg/
           intel_file=$(find . -name "*-intel.dmg" -type f | head -n 1)
@@ -192,7 +183,7 @@ jobs:
   package-windows:
     runs-on: windows-latest
     needs: test
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
@@ -234,11 +225,7 @@ jobs:
     - name: Rename Windows packages with version
       shell: bash
       run: |
-        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-          version=${GITHUB_REF#refs/tags/}
-        else
-          version="v1.0.0"
-        fi
+        version=${GITHUB_REF#refs/tags/}
         
         # Change MSI file name
         cd app/build/compose/binaries/main/msi/
