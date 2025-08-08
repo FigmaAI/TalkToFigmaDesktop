@@ -10,10 +10,10 @@ plugins {
 }
 
 javafx {
-    // JavaFX 버전을 JDK 21에 맞게 조정
+    // JavaFX version
     version = "21"
     modules("javafx.controls", "javafx.media", "javafx.swing")
-    // Liberica Full JDK를 사용할 경우 JavaFX가 내장되어 있음을 명시
+    // Liberica Full JDK is used, so JavaFX is built-in
     configuration = "compileOnly"
 }
 
