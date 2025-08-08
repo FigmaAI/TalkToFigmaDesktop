@@ -43,8 +43,8 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update version in build.gradle.kts
-        sed -i "s/version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
+        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
+        sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
     - name: Cache Gradle dependencies
       uses: actions/cache@v4
@@ -92,8 +92,8 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update version in build.gradle.kts
-        sed -i '' "s/version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
+        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
+        sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
     - name: Cache Gradle dependencies
       uses: actions/cache@v4
@@ -249,8 +249,8 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update version in build.gradle.kts
-        sed -i "s/version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
+        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
+        sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
     - name: Cache Gradle dependencies
       uses: actions/cache@v4
