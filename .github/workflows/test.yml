@@ -21,8 +21,10 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'liberica'
-        java-version: '21'
+        java-version: '21.0.7' # Specific version to avoid extraction issues
         java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
+        cache: 'gradle'
+        check-latest: false # Don't try to get latest version
       
     - name: Display JDK information
       run: |
