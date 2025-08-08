@@ -16,21 +16,13 @@ env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 jobs:
-  # We run tests on macOS using GitHub-hosted runners
+  # We run tests on macOS using self-hosted runners
   test:
-    runs-on: macos-latest
+    runs-on: [self-hosted, macos]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Set up Liberica JDK 21 Full with JavaFX
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'liberica'
-        java-version: '21'
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-        cache: 'gradle'
       
     - name: Display JDK information
       run: |
@@ -66,21 +58,13 @@ jobs:
         ./gradlew test --no-daemon
 
   package-mac:
-    runs-on: macos-latest
+    runs-on: [self-hosted, macos]
     needs: test
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Set up Liberica JDK 21 Full with JavaFX for macOS
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'liberica'
-        java-version: '21' # Use latest available JDK 21
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-        cache: 'gradle'
       
     - name: Display macOS JDK information
       run: |
