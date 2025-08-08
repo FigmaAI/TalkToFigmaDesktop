@@ -10,8 +10,8 @@ plugins {
 }
 
 javafx {
-    // JavaFX version
-    version = "21"
+    // JavaFX version - explicitly set to avoid using project version
+    version = "21.0.2"  // Use specific version for better compatibility
     modules("javafx.controls", "javafx.media", "javafx.swing")
     // Liberica Full JDK is used, so JavaFX is built-in
     configuration = "compileOnly"
