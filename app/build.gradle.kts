@@ -9,11 +9,15 @@ plugins {
     id("org.openjfx.javafxplugin") version "0.0.14"
 }
 
+// Explicitly specify JavaFX settings
 javafx {
-    // JavaFX version - explicitly set to avoid using project version
-    version = "21.0.2"  // Use specific version for better compatibility
-    modules("javafx.controls", "javafx.media", "javafx.swing")
-    // Liberica Full JDK is used, so JavaFX is built-in
+    // Explicitly set version to avoid using project version
+    version = "21.0.2"
+    
+    // Explicitly specify required modules
+    modules = listOf("javafx.controls", "javafx.media", "javafx.swing")
+    
+    // Liberica Full JDK has JavaFX built-in
     configuration = "compileOnly"
 }
 
@@ -44,6 +48,9 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
+
+    // JavaFX는 플러그인으로 설정되어 있음
+    // JavaFX는 Liberica Full JDK에 내장되어 있으므로 별도 의존성 추가 불필요
 
     // MCP Kotlin SDK (includes Ktor dependencies)
     implementation("io.modelcontextprotocol:kotlin-sdk:0.5.0")
