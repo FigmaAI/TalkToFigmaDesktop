@@ -70,21 +70,47 @@ download_intel_jdk() {
         # Download JDK
         curl -L "$JDK_URL" -o "$JDK_TAR"
         
-        # Extract archive
+        # Extract archive directly to final directory
+        echo "Extracting JDK to $INTEL_JDK_DIR..."
         mkdir -p "$INTEL_JDK_DIR"
-        tar -xf "$JDK_TAR" -C "$JDK_INSTALL_DIR"
+        tar -xf "$JDK_TAR" --strip-components=1 -C "$INTEL_JDK_DIR" || {
+            echo "Failed to extract with strip-components, trying alternative method..."
+            rm -rf "$INTEL_JDK_DIR"
+            mkdir -p "$INTEL_JDK_DIR"
+            
+            # Extract to temporary location first
+            TEMP_EXTRACT_DIR="$JDK_INSTALL_DIR/temp_extract"
+            rm -rf "$TEMP_EXTRACT_DIR"
+            mkdir -p "$TEMP_EXTRACT_DIR"
+            tar -xf "$JDK_TAR" -C "$TEMP_EXTRACT_DIR"
+            
+            # Find the extracted JDK directory
+            EXTRACTED_JDK=$(find "$TEMP_EXTRACT_DIR" -name "*.jdk" -type d | head -1)
+            if [ -z "$EXTRACTED_JDK" ]; then
+                EXTRACTED_JDK=$(find "$TEMP_EXTRACT_DIR" -name "jdk*" -type d | head -1)
+            fi
+            
+            if [ -n "$EXTRACTED_JDK" ]; then
+                echo "Found extracted JDK at: $EXTRACTED_JDK"
+                cp -R "$EXTRACTED_JDK"/* "$INTEL_JDK_DIR/"
+                rm -rf "$TEMP_EXTRACT_DIR"
+                echo "Intel JDK Full extracted to $INTEL_JDK_DIR"
+            else
+                echo "Failed to find extracted JDK directory"
+                ls -la "$TEMP_EXTRACT_DIR"
+                rm -rf "$TEMP_EXTRACT_DIR"
+                exit 1
+            fi
+        }
         
-        # Find the extracted directory name
-        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "jdk-21.0.8*-full" -type d | head -1)
+        # Clean up downloaded tar file
+        rm "$JDK_TAR"
         
-        if [ -n "$EXTRACTED_DIR" ]; then
-            # Move extracted files to the desired directory
-            mv "$EXTRACTED_DIR"/* "$INTEL_JDK_DIR"
-            rmdir "$EXTRACTED_DIR"
-            rm "$JDK_TAR"
-            echo "Intel JDK Full downloaded and installed to $INTEL_JDK_DIR"
+        # Verify installation
+        if [ -f "$INTEL_JDK_DIR/bin/java" ]; then
+            echo "✅ Intel JDK Full successfully installed to $INTEL_JDK_DIR"
         else
-            echo "Failed to extract JDK Full"
+            echo "❌ Intel JDK installation verification failed"
             exit 1
         fi
     fi
