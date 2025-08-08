@@ -55,16 +55,16 @@ download_intel_jdk() {
     mkdir -p "$JDK_INSTALL_DIR"
     
     # Set Intel JDK Full path
-    INTEL_JDK_VERSION="21.0.1"
+    INTEL_JDK_VERSION="21.0.8"
     INTEL_JDK_DIR="$JDK_INSTALL_DIR/jdk-$INTEL_JDK_VERSION-full-intel"
     
-    # Check if JDK is already downloaded
-    if [ -d "$INTEL_JDK_DIR" ]; then
+    # Check if JDK is already downloaded and has proper structure
+    if [ -d "$INTEL_JDK_DIR" ] && [ -f "$INTEL_JDK_DIR/bin/java" ]; then
         echo "Intel JDK Full already exists at $INTEL_JDK_DIR"
     else
         echo "Downloading Intel JDK Full with JavaFX..."
         # JDK download URL (BellSoft Liberica JDK Full with JavaFX - for Intel Mac)
-        JDK_URL="https://download.bell-sw.com/java/21.0.1+12/bellsoft-jdk21.0.1+12-macos-amd64-full.tar.gz"
+        JDK_URL="https://download.bell-sw.com/java/21.0.8+12/bellsoft-jdk21.0.8+12-macos-amd64-full.tar.gz"
         JDK_TAR="$JDK_INSTALL_DIR/intel-jdk-full.tar.gz"
         
         # Download JDK
@@ -75,7 +75,7 @@ download_intel_jdk() {
         tar -xf "$JDK_TAR" -C "$JDK_INSTALL_DIR"
         
         # Find the extracted directory name
-        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "jdk-21.0.1*-full" -type d | head -1)
+        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "jdk-21.0.8*-full" -type d | head -1)
         
         if [ -n "$EXTRACTED_DIR" ]; then
             # Move extracted files to the desired directory
