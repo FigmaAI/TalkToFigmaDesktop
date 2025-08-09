@@ -11,12 +11,18 @@ env:
 
 jobs:
   test:
-    runs-on: [self-hosted, macos]
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Set up JDK 21 (Amazon Corretto)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'corretto'
+        
     - name: Display JDK information
       run: |
         echo "==== JDK Information ===="
@@ -27,7 +33,7 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Run tests with JavaFX-enabled JDK
+    - name: Run tests
       run: |
         echo "Running tests with $(java -version 2>&1 | head -1)"
         ./gradlew test --no-daemon

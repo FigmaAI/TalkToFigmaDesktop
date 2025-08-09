@@ -48,24 +48,24 @@ check_rosetta() {
     fi
 }
 
-# Download Intel JDK Full with JavaFX (if not already downloaded)
+# Download Intel JDK
 download_intel_jdk() {
     # JDK installation path
     JDK_INSTALL_DIR="$HOME/.jdks"
     mkdir -p "$JDK_INSTALL_DIR"
     
-    # Set Intel JDK Full path
-    INTEL_JDK_VERSION="21.0.8"
-    INTEL_JDK_DIR="$JDK_INSTALL_DIR/jdk-$INTEL_JDK_VERSION-full-intel"
+    # Set Intel JDK path
+    INTEL_JDK_VERSION="21.0.5.11.1"
+    INTEL_JDK_DIR="$JDK_INSTALL_DIR/amazon-corretto-$INTEL_JDK_VERSION-intel"
     
     # Check if JDK is already downloaded and has proper structure
-    if [ -d "$INTEL_JDK_DIR" ] && [ -f "$INTEL_JDK_DIR/bin/java" ]; then
-        echo "Intel JDK Full already exists at $INTEL_JDK_DIR"
+    if [ -d "$INTEL_JDK_DIR" ] && [ -f "$INTEL_JDK_DIR/Contents/Home/bin/java" ]; then
+        echo "Intel JDK already exists at $INTEL_JDK_DIR"
     else
-        echo "Downloading Intel JDK Full with JavaFX..."
-        # JDK download URL (BellSoft Liberica JDK Full with JavaFX - for Intel Mac)
-        JDK_URL="https://download.bell-sw.com/java/21.0.8+12/bellsoft-jdk21.0.8+12-macos-amd64-full.tar.gz"
-        JDK_TAR="$JDK_INSTALL_DIR/intel-jdk-full.tar.gz"
+        echo "Downloading Intel JDK..."
+        # JDK download URL (AWS Corretto JDK - for Intel Mac)
+        JDK_URL="https://corretto.aws/downloads/resources/$INTEL_JDK_VERSION/amazon-corretto-$INTEL_JDK_VERSION-macosx-x64.tar.gz"
+        JDK_TAR="$JDK_INSTALL_DIR/amazon-corretto-intel.tar.gz"
         
         # Download JDK
         curl -L "$JDK_URL" -o "$JDK_TAR"
@@ -94,7 +94,7 @@ download_intel_jdk() {
                 echo "Found extracted JDK at: $EXTRACTED_JDK"
                 cp -R "$EXTRACTED_JDK"/* "$INTEL_JDK_DIR/"
                 rm -rf "$TEMP_EXTRACT_DIR"
-                echo "Intel JDK Full extracted to $INTEL_JDK_DIR"
+                echo "Intel JDK extracted to $INTEL_JDK_DIR"
             else
                 echo "Failed to find extracted JDK directory"
                 ls -la "$TEMP_EXTRACT_DIR"
@@ -107,19 +107,21 @@ download_intel_jdk() {
         rm "$JDK_TAR"
         
         # Verify installation
-        if [ -f "$INTEL_JDK_DIR/bin/java" ]; then
-            echo "✅ Intel JDK Full successfully installed to $INTEL_JDK_DIR"
+        if [ -f "$INTEL_JDK_DIR/Contents/Home/bin/java" ]; then
+            echo "✅ Intel JDK successfully installed to $INTEL_JDK_DIR"
         else
             echo "❌ Intel JDK installation verification failed"
+            echo "Contents of $INTEL_JDK_DIR:"
+            ls -la "$INTEL_JDK_DIR" || true
             exit 1
         fi
     fi
     
-    echo "Using Intel JDK Full with JavaFX at: $INTEL_JDK_DIR"
-    export INTEL_JDK_PATH="$INTEL_JDK_DIR"
+    echo "Using Intel JDK at: $INTEL_JDK_DIR"
+    export INTEL_JDK_PATH="$INTEL_JDK_DIR/Contents/Home"
 }
 
-# Run build with Intel JDK Full (with JavaFX)
+# Run build with Intel JDK
 build_with_intel_jdk() {
     # Create temporary build directory and result directory
     mkdir -p "$TEMP_BUILD_DIR" "$INTEL_BUILD_DIR/dmg"

@@ -24,7 +24,7 @@ class GoogleAnalyticsService {
     private val userLocale = Locale.getDefault().toString()
     
     // Generate persistent client ID for this app instance
-    private val clientId = generateClientId()
+    private val clientId = UUID.randomUUID().toString()
     
     // Get app version dynamically
     private val appVersion = getAppVersion()
@@ -212,26 +212,6 @@ $paramsJson
         } catch (e: Exception) {
             logger.warn(e) { "Failed to load app version from version.properties" }
             "unknown"
-        }
-    
-
-    
-    /**
-     * Generate a consistent client ID based on system properties
-     */
-    private fun generateClientId(): String {
-        return try {
-            // Create a consistent UUID based on system properties
-            val systemInfo = "${System.getProperty("user.name", "unknown")}_" +
-                           "${System.getProperty("os.name", "unknown")}_" +
-                           "${System.getProperty("java.version", "unknown")}"
-            
-            // Generate UUID from system info hash for consistency
-            val hash = systemInfo.hashCode().toLong()
-            UUID(hash, hash).toString()
-        } catch (e: Exception) {
-            // Fallback to random UUID
-            UUID.randomUUID().toString()
         }
     }
 }

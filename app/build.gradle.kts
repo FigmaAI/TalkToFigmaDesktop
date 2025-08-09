@@ -6,22 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
-    id("org.openjfx.javafxplugin") version "0.0.14"
+
 }
 
-// Explicitly specify JavaFX settings
-val jfxVersion = "21.0.2" // Declare JavaFX version as a constant to prevent it from using project version
-
-javafx {
-    // CRITICAL: Use the explicit version constant, not a string literal
-    version = jfxVersion
-    
-    // Explicitly specify required modules
-    modules = listOf("javafx.controls", "javafx.media", "javafx.swing")
-    
-    // Liberica Full JDK has JavaFX built-in
-    configuration = "compileOnly"
-}
+// JavaFX completely removed - now using Skiko for WebP animation
 
 group = "kr.co.metadata.mcp"
 version = "1.0.5" // App version
@@ -29,14 +17,14 @@ version = "1.0.5" // App version
 kotlin {
     jvmToolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.BELLSOFT)
+        vendor.set(JvmVendorSpec.AMAZON)
     }
 }
 
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.BELLSOFT)
+        vendor.set(JvmVendorSpec.AMAZON)
     }
 }
 
@@ -63,8 +51,7 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
 
-    // JavaFX는 플러그인으로 설정되어 있음
-    // JavaFX는 Liberica Full JDK에 내장되어 있으므로 별도 의존성 추가 불필요
+
 
     // MCP Kotlin SDK (includes Ktor dependencies)
     implementation("io.modelcontextprotocol:kotlin-sdk:0.5.0")
@@ -86,6 +73,10 @@ dependencies {
     
     // JSON support for analytics
     implementation("org.json:json:20231013")
+    
+    // Skiko for WebP animation support
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-macos-x64:0.8.4")
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.8.4")
 
     // Test Dependencies
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
