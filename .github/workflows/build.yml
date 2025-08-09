@@ -302,7 +302,7 @@ jobs:
           ## TalkToFigma Desktop Release
           
           ### 📦 Download
-          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon M1/M2/M3 Macs)
+          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon)
           - **macOS Intel**: `*-intel.dmg` (Intel-based Macs)
           - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe`
           
@@ -315,9 +315,4 @@ jobs:
           
           **Windows**: 
           - **MSI**: Recommended method, official installation on the system
-          - **EXE**: Portable executable file
-          
-          ### ⚠️ Important
-          **macOS**: For builds from the 'main' branch (not releases), the app is not signed and Gatekeeper may show a warning.
-          - Right-click the app → "Open"
-          - Select "Open Anyway" in "System Settings > Security & Privacy" 
+          - **EXE**: Portable executable file" 

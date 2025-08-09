@@ -362,7 +362,11 @@ fun McpConfigurationDialog(
                             Button(
                                 onClick = {
                                     scope.launch {
-                                        // TODO: Add analytics later
+                                        analyticsService?.sendUserAction(
+                                            category = "ui_interaction",
+                                            action = "copy_mcp_config",
+                                            label = "config_dialog_copy_button"
+                                        )
                                         logger.debug { "MCP config copied" }
                                     }
                                     clipboardManager.setText(AnnotatedString(mcpConfig))
@@ -569,8 +573,13 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            // TODO: Add analytics later
-                                            logger.debug { "Logs refreshed" }
+                                            val logLabel = "Logs refreshed"
+                                            analyticsService?.sendUserAction(
+                                                action = "refresh_logs",
+                                                category = "ui_interaction",
+                                                label = logLabel
+                                            )
+                                            logger.debug { logLabel }
                                         }
                                         refreshLogs()
                                     },
@@ -588,7 +597,11 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            // TODO: Add analytics later
+                                            analyticsService?.sendUserAction(
+                                                category = "ui_interaction",
+                                                action = "clear_logs",
+                                                label = "Clear logs"
+                                            )
                                         }
                                         clearLogs()
                                     },
@@ -606,7 +619,11 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            // TODO: Add analytics later
+                                            analyticsService?.sendUserAction(
+                                                category = "ui_interaction",
+                                                action = "copy_logs",
+                                                label = "Copy logs to clipboard"
+                                            )
                                         }
                                         copyLogs()
                                     },
@@ -656,9 +673,16 @@ fun LogViewerDialog(
                             // Report Issue button (Primary)
                             Button(
                                 onClick = {
+                                    scope.launch {
+                                        analyticsService?.sendUserAction(
+                                            action = "report_issue",
+                                            category = "ui_interaction",
+                                            label = "Report an Issue"
+                                        )
+                                    }
                                     try {
                                         // Prepare issue content with log data
-                                        val issueTitle = "Bug Report from Cursor Talk to Figma desktop"
+                                        val issueTitle = "Bug Report from Cursor Talk to Figma Desktop"
                                         val issueBody = """
 ## Bug Description
 Please describe the issue you're experiencing:
@@ -740,6 +764,22 @@ What actually happened?
 
 
 fun main() {
+    // Set app name for macOS menu bar and dock
+    System.setProperty("apple.awt.application.name", "Cursor Talk to Figma Desktop")
+    System.setProperty("com.apple.mrj.application.apple.menu.about.name", "Cursor Talk to Figma Desktop")
+    
+    // Additional macOS properties for dock name
+    if (System.getProperty("os.name").lowercase().contains("mac")) {
+        try {
+            val toolkit = java.awt.Toolkit.getDefaultToolkit()
+            val awtAppClassNameField = toolkit.javaClass.getDeclaredField("awtAppClassName")
+            awtAppClassNameField.isAccessible = true
+            awtAppClassNameField.set(toolkit, "Cursor Talk to Figma Desktop")
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to set AWT app class name: ${e.message}" }
+        }
+    }
+    
     application {
         var websocketServerRunning by remember { mutableStateOf(false) }
         var mcpServerRunning by remember { mutableStateOf(false) }
@@ -755,7 +795,7 @@ fun main() {
         
         // Check if it's first time launch and show tutorial
         LaunchedEffect(Unit) {
-            logger.info { "Cursor Talk to Figma desktop application started" }
+            logger.info { "Cursor Talk to Figma Desktop application started" }
             
             // Initialize basic GA4 Analytics
             try {
@@ -840,7 +880,7 @@ fun main() {
         Tray(
             icon = rememberSizedTrayIconPainter(trayIconPath, 128, 128),
             state = trayState,
-            tooltip = "Cursor Talk to Figma desktop",
+            tooltip = "Cursor Talk to Figma Desktop",
             menu = {
                 // Track Tray menu open by placing analytics in the first item
                 LaunchedEffect(Unit) {
@@ -927,8 +967,14 @@ fun main() {
                                     logger.info { "✅ WebSocket server started successfully on port $wsPort" }
                                     
                                     // Track WebSocket server start with performance data
-                                    // TODO: Add analytics later
-                                    logger.debug { "WebSocket server started" }
+                                    val logLabel = "WebSocket server started"
+                                    analyticsService?.sendUserAction(
+                                        category = "server_management",
+                                        action = "start_websocket_server",
+                                        label = logLabel,
+                                        value = startupTime.toInt()
+                                    )
+                                    logger.debug { logLabel }
                                     
                                     // Start MCP server with port cleanup
                                     val mcpPort = 3056
@@ -1011,8 +1057,13 @@ fun main() {
                     } else {
                         Item("Stop WebSocket Server", onClick = {
                             scope.launch {
-                                // TODO: Add analytics later
-                                logger.debug { "WebSocket server stopped" }
+                                val logLabel = "WebSocket server stopped"
+                                analyticsService?.sendUserAction(
+                                    action = "stop_websocket_server",
+                                    category = "server_management",
+                                    label = logLabel
+                                )
+                                logger.debug { logLabel }
                             }
                             try {
                                 webSocketServer?.stop()
@@ -1043,8 +1094,14 @@ fun main() {
                                         logger.info { "✅ MCP server started successfully on http://localhost:$mcpPort/sse" }
                                         
                                         // Track MCP server start with performance data
-                                        // TODO: Add analytics later
-                                        logger.debug { "MCP server started" }
+                                        val logLabel = "MCP server started"
+                                        analyticsService?.sendUserAction(
+                                            action = "start_mcp_server",
+                                            category = "server_management",
+                                            label = logLabel,
+                                            value = startupTime.toInt()
+                                        )
+                                        logger.debug { logLabel }
                                     } else {
                                         logger.error { "❌ Failed to make port $mcpPort available for MCP server" }
                                     }
@@ -1058,8 +1115,13 @@ fun main() {
                     } else {
                         Item("Stop MCP Server", onClick = {
                             scope.launch {
-                                // TODO: Add analytics later
-                                logger.debug { "MCP server stopped" }
+                                val logLabel = "MCP server stopped"
+                                analyticsService?.sendUserAction(
+                                    category = "server_management",
+                                    action = "stop_mcp_server",
+                                    label = logLabel
+                                )
+                                logger.debug { logLabel }
                             }
                             try {
                                 mcpServer?.stop()
@@ -1077,8 +1139,13 @@ fun main() {
                 // Emergency action
                 Item("Kill All Servers", onClick = {
                     scope.launch {
-                        // TODO: Add analytics later
-                        logger.debug { "All servers killed" }
+                        val logLabel = "All servers killed"
+                        analyticsService?.sendUserAction(
+                            action = "kill_all_servers",
+                            category = "emergency_action",
+                            label = logLabel
+                        )
+                        logger.debug { logLabel }
                     }
                     try {
                         logger.info { "User requested to kill all servers" }
@@ -1100,8 +1167,13 @@ fun main() {
                 
                 Item("Exit", onClick = {
                     scope.launch {
-                        // TODO: Add analytics later
-                        logger.debug { "App exit requested" }
+                        val logLabel = "App exit requested"
+                        analyticsService?.sendUserAction(
+                            category = "app_lifecycle",
+                            action = "app_exit",
+                            label = logLabel
+                        )
+                        logger.debug { logLabel }
                     }
                     try {
                         if (mcpServerRunning) {
@@ -1113,7 +1185,7 @@ fun main() {
                         
                         // Cleanup analytics
                         crashHandler?.cleanup()
-                        // TODO: Add analytics cleanup later
+                        // Analytics service cleanup is automatic
                     } catch (e: Exception) {
                         logger.error(e) { "Error stopping servers during exit" }
                     }
@@ -1141,7 +1213,8 @@ fun main() {
         // Tutorial Dialog
         TutorialDialog(
             isVisible = showTutorialDialog,
-            onDismiss = { showTutorialDialog = false }
+            onDismiss = { showTutorialDialog = false },
+            analyticsService = analyticsService
         )
     }
 } 

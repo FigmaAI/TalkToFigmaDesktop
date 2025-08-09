@@ -104,7 +104,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "Cursor Talk to Figma desktop"
+            packageName = "Cursor Talk to Figma Desktop"
             packageVersion = project.version.toString()
             
             // Include JRE for self-contained application
@@ -112,7 +112,7 @@ compose.desktop {
 
             macOS {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
-                dockName = "Cursor Talk to Figma desktop"
+                dockName = "Cursor Talk to Figma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
                 
                 // Fix LSApplicationCategoryType issue
@@ -129,6 +129,9 @@ compose.desktop {
                 // Optimized JVM arguments
                 jvmArgs(
                     "-Dapple.awt.enableTemplateImages=true",
+                    "-Dcom.apple.mrj.application.apple.menu.about.name=Cursor Talk to Figma Desktop",
+                    "-Dapple.awt.application.name=Cursor Talk to Figma Desktop",
+                    "-Xdock:name=Cursor Talk to Figma Desktop",
                     "-Xms64m",
                     "-Xmx512m",
                     "-XX:+UseG1GC",
@@ -138,6 +141,9 @@ compose.desktop {
                 // Add required Info.plist key for export compliance
                 infoPlist {
                     "ITSAppUsesNonExemptEncryption" to false
+                    "CFBundleDisplayName" to "Cursor Talk to Figma Desktop"
+                    "CFBundleName" to "Cursor Talk to Figma Desktop"
+                    "CFBundleExecutable" to "Cursor Talk to Figma Desktop"
                 }
 
                 // 공통 entitlements 파일 사용 (App Store와 Developer ID 모두 호환)
@@ -172,7 +178,7 @@ compose.desktop {
             }
 
             windows {
-                menuGroup = "Cursor Talk to Figma desktop"
+                menuGroup = "Cursor Talk to Figma Desktop"
                 upgradeUuid = "FCDFDD35-04EB-4698-89F5-3CCAB516B324"
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 // Console app (set to false to hide console window)

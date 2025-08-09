@@ -30,6 +30,7 @@ import androidx.compose.ui.awt.SwingPanel
 import mu.KotlinLogging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import org.jetbrains.skia.Data
 import org.jetbrains.skia.Image as SkiaImage
 import org.jetbrains.skia.Codec
@@ -159,7 +160,8 @@ fun WebPAnimationViewer(
 @Composable
 fun TutorialDialog(
     isVisible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    analyticsService: kr.co.metadata.mcp.analytics.GoogleAnalyticsService? = null
 ) {
     if (isVisible) {
         val dialogState = rememberDialogState(
@@ -177,6 +179,7 @@ fun TutorialDialog(
         ) {
             val isDarkTheme = isSystemInDarkTheme()
             val uriHandler = LocalUriHandler.current
+            val scope = rememberCoroutineScope()
             var currentVideoIndex by remember { mutableStateOf(0) }
             
             // WebP 애니메이션 파일 경로 목록
@@ -209,6 +212,19 @@ fun TutorialDialog(
             )
             
             val totalVideos = videoTutorials.size
+            
+            // Send analytics event when step changes
+            LaunchedEffect(currentVideoIndex) {
+                val currentTutorial = videoTutorials[currentVideoIndex]
+                scope.launch {
+                    analyticsService?.sendPageView(
+                        pageTitle = currentTutorial.title,
+                        pageLocation = "https://mcp.metadata.co.kr/tutorial/step${currentVideoIndex + 1}",
+                        pagePath = "/tutorial/step${currentVideoIndex + 1}"
+                    )
+                    logger.debug { "Tutorial step analytics sent: ${currentTutorial.title}" }
+                }
+            }
             
             // Removed auto-advance timer - let users control their own pace
 

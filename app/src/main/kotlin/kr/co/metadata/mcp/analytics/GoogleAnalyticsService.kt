@@ -26,6 +26,9 @@ class GoogleAnalyticsService {
     // Generate persistent client ID for this app instance
     private val clientId = UUID.randomUUID().toString()
     
+    // Generate persistent session ID for this app session
+    private val sessionId = UUID.randomUUID().toString()
+    
     // Get app version dynamically
     private val appVersion = getAppVersion()
     
@@ -40,6 +43,7 @@ class GoogleAnalyticsService {
         logger.info { "GA4 Analytics Service initialized" }
         logger.debug { "Measurement ID: $measurementId" }
         logger.debug { "Client ID: $clientId" }
+        logger.debug { "Session ID: $sessionId" }
         logger.debug { "OS: $osName $osVersion ($osArch)" }
         logger.debug { "App Version: $appVersion" }
         logger.debug { "Timezone: $timeZone" }
@@ -122,8 +126,6 @@ class GoogleAnalyticsService {
         }
         
         return try {
-            val sessionId = UUID.randomUUID().toString()
-            
             val url = URL("https://www.google-analytics.com/mp/collect" +
                     "?measurement_id=$measurementId&api_secret=$apiSecret")
             
