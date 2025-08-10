@@ -129,6 +129,34 @@ build_with_intel_jdk() {
     # Ensure we don't overwrite any existing builds
     echo "ℹ️ Building Intel-specific version without affecting existing builds..."
     
+    # === Process Analytics Configuration ===
+    echo "📊 Processing analytics configuration for Intel build..."
+    ANALYTICS_PROPS_PATH="app/src/main/resources/analytics.properties"
+    ANALYTICS_BACKUP_PATH="app/src/main/resources/analytics.properties.intel.backup"
+    
+    # Check if environment variables are set for analytics
+    if [ -n "$GOOGLE_ANALYTICS_ID" ] && [ -n "$GOOGLE_ANALYTICS_API_SECRET" ]; then
+        echo "✅ Google Analytics environment variables found for Intel build"
+        echo "   - GA4 Measurement ID: $GOOGLE_ANALYTICS_ID"
+        echo "   - API Secret: $(echo "$GOOGLE_ANALYTICS_API_SECRET" | sed 's/./*/g')"
+        
+        # Backup original template file
+        cp "$ANALYTICS_PROPS_PATH" "$ANALYTICS_BACKUP_PATH"
+        
+        # Process template variables
+        echo "🔄 Processing analytics template variables for Intel build..."
+        sed -i.tmp \
+            -e "s/{{GOOGLE_ANALYTICS_ID}}/$GOOGLE_ANALYTICS_ID/g" \
+            -e "s/{{GOOGLE_ANALYTICS_API_SECRET}}/$GOOGLE_ANALYTICS_API_SECRET/g" \
+            "$ANALYTICS_PROPS_PATH"
+        rm "${ANALYTICS_PROPS_PATH}.tmp"
+        
+        echo "✅ Analytics configuration processed for Intel production build"
+    else
+        echo "⚠️  Warning: Google Analytics environment variables not set for Intel build"
+        echo "   The app will be built without analytics functionality"
+    fi
+    
     # JVM and build options for Intel Mac compatibility
     GRADLE_OPTS="$GRADLE_OPTS -Xmx2G -XX:MaxMetaspaceSize=512m"
     
@@ -150,6 +178,13 @@ build_with_intel_jdk() {
 
 # Copy and organize build results
 finalize_build() {
+    # === Restore Analytics Configuration Template ===
+    if [ -f "$ANALYTICS_BACKUP_PATH" ]; then
+        echo "🔄 Restoring analytics configuration template after Intel build..."
+        mv "$ANALYTICS_BACKUP_PATH" "$ANALYTICS_PROPS_PATH"
+        echo "✅ Analytics template restored for development"
+    fi
+    
     # Copy results from the default build directory to Intel-specific build directory
     DEFAULT_DMG_DIR="app/build/compose/binaries/main/dmg"
     

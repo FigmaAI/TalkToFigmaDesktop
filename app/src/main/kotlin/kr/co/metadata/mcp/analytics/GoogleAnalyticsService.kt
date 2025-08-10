@@ -12,9 +12,10 @@ import java.util.Properties
 class GoogleAnalyticsService {
     private val logger = KotlinLogging.logger {}
     
-    // Environment variables (set in .envrc)
-    private val measurementId = System.getenv("GOOGLE_ANALYTICS_ID")
-    private val apiSecret = System.getenv("GOOGLE_ANALYTICS_API_SECRET")
+    // Use AnalyticsConfig for centralized configuration management
+    private val analyticsConfig = AnalyticsConfig()
+    private val measurementId: String? = analyticsConfig.measurementId
+    private val apiSecret: String? = analyticsConfig.apiSecret
     
     // Basic device/environment info
     private val osName = System.getProperty("os.name")
@@ -34,10 +35,6 @@ class GoogleAnalyticsService {
     
     // Get system timezone
     private val timeZone = TimeZone.getDefault().id
-    
-
-    
-
     
     init {
         logger.info { "GA4 Analytics Service initialized" }
