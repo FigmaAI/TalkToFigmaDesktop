@@ -37,9 +37,38 @@ echo "   - Entitlements: $ENTITLEMENTS"
 echo "   - Archive Path: $ARCHIVE_PATH"
 echo ""
 
-# --- Step 1: Build the app without automatic signing ---
-echo "🔨 [Step 1/6] Building universal binary for App Store..."
+# --- Step 1: Process analytics configuration and build the app ---
+echo "🔨 [Step 1/6] Processing analytics configuration and building universal binary for App Store..."
 export BUILD_FOR_APP_STORE=true
+
+# === Process Analytics Configuration ===
+echo "📊 Processing analytics configuration..."
+ANALYTICS_PROPS_PATH="app/src/main/resources/analytics.properties"
+ANALYTICS_BACKUP_PATH="app/src/main/resources/analytics.properties.backup"
+
+# Check if environment variables are set for analytics
+if [ -n "$GOOGLE_ANALYTICS_ID" ] && [ -n "$GOOGLE_ANALYTICS_API_SECRET" ]; then
+    echo "✅ Google Analytics environment variables found"
+    echo "   - GA4 Measurement ID: $GOOGLE_ANALYTICS_ID"
+    echo "   - API Secret: $(echo "$GOOGLE_ANALYTICS_API_SECRET" | sed 's/./*/g')"
+    
+    # Backup original template file
+    cp "$ANALYTICS_PROPS_PATH" "$ANALYTICS_BACKUP_PATH"
+    
+    # Process template variables
+    echo "🔄 Processing analytics template variables..."
+    sed -i.tmp \
+        -e "s/{{GOOGLE_ANALYTICS_ID}}/$GOOGLE_ANALYTICS_ID/g" \
+        -e "s/{{GOOGLE_ANALYTICS_API_SECRET}}/$GOOGLE_ANALYTICS_API_SECRET/g" \
+        "$ANALYTICS_PROPS_PATH"
+    rm "${ANALYTICS_PROPS_PATH}.tmp"
+    
+    echo "✅ Analytics configuration processed for production build"
+else
+    echo "⚠️  Warning: Google Analytics environment variables not set"
+    echo "   The app will be built without analytics functionality"
+    echo "   Set GOOGLE_ANALYTICS_ID and GOOGLE_ANALYTICS_API_SECRET to enable analytics"
+fi
 
 # Check current architecture
 ARCH=$(uname -m)
@@ -59,22 +88,19 @@ if [ "$ARCH" == "arm64" ]; then
 fi
 
 # === Gradle Build Configuration ===
-# JDK path, architecture and JavaFX related system properties
+# JDK path and system properties (JavaFX removed)
 GRADLE_PROPS=(
   "-Dcompose.desktop.mac.archs=x86_64,arm64"
   "-Dcompose.desktop.mac.minSdkVersion=10.15" 
   "-Dcompose.desktop.verbose=true"
-  "-Djavafx.verbose=true"
-  "-Dprism.verbose=true"
-  "-Djavafx.macosx.embedded=true"
   "-Dapple.awt.UIElement=true"
   "-Dorg.gradle.parallel=true"
 )
 
-# JVM optimization options
+# JVM optimization options (JavaFX removed)
 JVM_OPTS=(
-  "-Dkotlin.daemon.jvmargs=-Xmx2g -XX:+UseParallelGC -Djavafx.verbose=true -Dprism.verbose=true"
-  "-Dorg.gradle.jvmargs=-Xmx2g -XX:+UseParallelGC -Djavafx.verbose=true -Dprism.verbose=true -Dapple.awt.UIElement=true -Djavafx.macosx.embedded=true"
+  "-Dkotlin.daemon.jvmargs=-Xmx2g -XX:+UseParallelGC"
+  "-Dorg.gradle.jvmargs=-Xmx2g -XX:+UseParallelGC -Dapple.awt.UIElement=true"
 )
 
 echo "🚀 Starting Universal App build (x86_64, arm64)..."
@@ -84,37 +110,28 @@ echo "🚀 Starting Universal App build (x86_64, arm64)..."
 
 BUILD_RESULT=$?
 if [ $BUILD_RESULT -ne 0 ]; then
-  echo "❌ Build failed! Exiting."
+  echo "❌ Build failed! Restoring analytics template and exiting."
+  
+  # Restore analytics template if backup exists
+  if [ -f "$ANALYTICS_BACKUP_PATH" ]; then
+      echo "🔄 Restoring analytics configuration template after build failure..."
+      mv "$ANALYTICS_BACKUP_PATH" "$ANALYTICS_PROPS_PATH"
+      echo "✅ Analytics template restored"
+  fi
+  
   exit $BUILD_RESULT
 fi
 
 echo "✅ App built successfully at: $APP_PATH"
 
-# Verify JavaFX libraries
-echo "🔍 Verifying JavaFX libraries inclusion..."
-
-# List of core JavaFX libraries
-CORE_LIBS=("libprism_es2.dylib" "libprism_sw.dylib" "libglass.dylib")
-MISSING_LIBS=()
-
-for lib in "${CORE_LIBS[@]}"; do
-  LIB_PATH=$(find "${APP_PATH}" -name "$lib" -type f)
-  if [ -z "$LIB_PATH" ]; then
-    MISSING_LIBS+=("$lib")
-  else
-    echo "  ✓ $lib found: $LIB_PATH"
-  fi
-done
-
-if [ ${#MISSING_LIBS[@]} -gt 0 ]; then
-  echo "⚠️  Warning: The following JavaFX libraries could not be found:"
-  for lib in "${MISSING_LIBS[@]}"; do
-    echo "  - $lib"
-  done
-  echo "  Video playback and some UI features may not work."
-else
-  echo "✅ All required JavaFX libraries are included."
+# === Restore Analytics Configuration Template ===
+if [ -f "$ANALYTICS_BACKUP_PATH" ]; then
+    echo "🔄 Restoring analytics configuration template..."
+    mv "$ANALYTICS_BACKUP_PATH" "$ANALYTICS_PROPS_PATH"
+    echo "✅ Analytics template restored for development"
 fi
+
+# JavaFX verification removed - now using Skiko for WebP animations
 
 # --- Step 2: Embed the provisioning profile ---
 echo "📄 [Step 2/6] Embedding provisioning profile..."
@@ -147,7 +164,7 @@ find "${APP_PATH}" -type f \( -name "*.dylib" -o -name "*.jnilib" -o -name "*.so
     sign_binary "$binary"
 done
 
-# 2. Sign all JAR files (especially JavaFX related)
+# 2. Sign all JAR files
 echo "   - Signing JAR files..."
 find "${APP_PATH}" -type f -name "*.jar" | while read -r jar; do
     sign_binary "$jar"
@@ -159,24 +176,7 @@ find "${APP_PATH}" -type f -perm +111 | grep -v "\(dylib\|jnilib\|so\|jar\)$" | 
     sign_binary "$executable"
 done
 
-# 4. Verify critical JavaFX related files
-echo "🔍 Verifying JavaFX libraries..."
-JFX_CRITICAL_LIBS=("libprism_es2.dylib" "libprism_sw.dylib" "libglass.dylib")
-JFX_FOUND=false
-
-for lib in "${JFX_CRITICAL_LIBS[@]}"; do
-    LIB_PATH=$(find "${APP_PATH}" -name "$lib" -type f)
-    if [ -n "$LIB_PATH" ]; then
-        JFX_FOUND=true
-        echo "   ✅ Critical JavaFX library found and signed: $lib"
-    else
-        echo "   ⚠️  Warning: Critical JavaFX library not found: $lib"
-    fi
-done
-
-if [ "$JFX_FOUND" = false ]; then
-    echo "⚠️  Warning: JavaFX core libraries not found. Video playback may not work."
-fi
+# JavaFX verification removed - now using Skiko for WebP animations
 
 # Sign any other executables in the runtime directory
 echo "   Signing other runtime executables..."
@@ -202,12 +202,7 @@ echo "✅ application-identifier added to Info.plist: $APP_IDENTIFIER"
 /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption NO" "$INFO_PLIST"
 echo "✅ ITSAppUsesNonExemptEncryption set to NO in Info.plist"
 
-# Add JavaFX-related properties if needed
-/usr/libexec/PlistBuddy -c "Add :javafx.verbose bool true" "$INFO_PLIST" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :javafx.verbose true" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Add :javafx.macosx.embedded bool true" "$INFO_PLIST" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :javafx.macosx.embedded true" "$INFO_PLIST"
-echo "✅ JavaFX properties added to Info.plist"
+# JavaFX properties no longer needed - using Skiko for WebP animations
 
 # --- Step 5: Sign the app bundle ---
 echo "🔏 [Step 5/6] Signing the app with identity: $SIGNING_IDENTITY_APPSTORE"

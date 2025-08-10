@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ main, internal-release, develop ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
@@ -11,21 +11,18 @@ env:
 
 jobs:
   test:
-    runs-on: [self-hosted, macos]
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Liberica JDK 21 Full with JavaFX
+    - name: Set up JDK 21 (Amazon Corretto)
       uses: actions/setup-java@v4
       with:
-        distribution: 'liberica'
-        java-version: '21.0.7' # Specific version to avoid extraction issues
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-        cache: 'gradle'
-        check-latest: false # Don't try to get latest version
-      
+        java-version: '21'
+        distribution: 'corretto'
+        
     - name: Display JDK information
       run: |
         echo "==== JDK Information ===="
@@ -33,20 +30,10 @@ jobs:
         echo "JDK path: $JAVA_HOME"
         echo "========================="
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-          
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Run tests with JavaFX-enabled JDK
+    - name: Run tests
       run: |
         echo "Running tests with $(java -version 2>&1 | head -1)"
         ./gradlew test --no-daemon

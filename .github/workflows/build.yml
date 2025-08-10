@@ -2,7 +2,6 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main, internal-release ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
@@ -16,21 +15,20 @@ env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 jobs:
-  # We run tests on Ubuntu but don't create Linux packages - focusing only on Windows and Mac builds
+  # Run tests on GitHub-hosted macOS runners
   test:
-    runs-on: [self-hosted, macos]
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Liberica JDK 21 Full with JavaFX
+    - name: Set up JDK 21 (Amazon Corretto)
       uses: actions/setup-java@v4
       with:
-        distribution: 'liberica'
         java-version: '21'
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-      
+        distribution: 'corretto'
+        
     - name: Display JDK information
       run: |
         echo "==== JDK Information ===="
@@ -43,45 +41,34 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
-        sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
+        # Update project version in build.gradle.kts
+        sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Run tests with JavaFX-enabled JDK
+    - name: Run tests
       run: |
         echo "Running tests with $(java -version 2>&1 | head -1)"
         ./gradlew test --no-daemon
 
   package-mac:
-    runs-on: [self-hosted, macos]
+    runs-on: macos-latest
     needs: test
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Liberica JDK 21 Full with JavaFX for macOS
+    - name: Set up JDK 21 (Amazon Corretto)
       uses: actions/setup-java@v4
       with:
-        distribution: 'liberica'
-        java-version: '21.0.7' # Specific version to avoid extraction issues
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
-        cache: 'gradle'
-        check-latest: false # Don't try to get latest version
-      
+        java-version: '21'
+        distribution: 'corretto'
+        
     - name: Display macOS JDK information
       run: |
         echo "==== macOS JDK Information ===="
@@ -94,18 +81,10 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
+        # Update project version in build.gradle.kts
         sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Make gradlew executable
       run: chmod +x ./gradlew
@@ -150,10 +129,6 @@ jobs:
         
         echo "✅ Both ARM64 and Intel Mac builds completed and notarized"
       
-    - name: Build Unsigned DMG (Main Branch)
-      if: github.ref == 'refs/heads/main'
-      run: ./gradlew packageDmg --no-daemon -PsigningEnabled=false
-      
     - name: Clean up keychain
       if: always() && startsWith(github.ref, 'refs/tags/v')
       run: |
@@ -165,11 +140,7 @@ jobs:
         cd app/build/compose/binaries/main/dmg/
         original_file=$(find . -name "*.dmg" -type f | head -n 1)
         if [ -n "$original_file" ]; then
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version=${GITHUB_REF#refs/tags/}
-          else
-            version="v1.0.0-unsigned"
-          fi
+          version=${GITHUB_REF#refs/tags/}
           # Keep original name format but add arm64 suffix if not already present
           if [[ "$original_file" != *"-arm64.dmg"* ]]; then
             arm64_name="${original_file%.dmg}-arm64.dmg"
@@ -184,7 +155,7 @@ jobs:
           ls -la
         fi
         
-        # 2. Rename Intel DMG file (for tagged releases only)
+        # 2. Rename Intel DMG file
         if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           cd ../../intel/dmg/
           intel_file=$(find . -name "*-intel.dmg" -type f | head -n 1)
@@ -224,20 +195,18 @@ jobs:
   package-windows:
     runs-on: windows-latest
     needs: test
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Liberica JDK 21 Full with JavaFX for Windows
+    - name: Set up JDK 21 (Amazon Corretto)
       uses: actions/setup-java@v4
       with:
-        distribution: 'liberica'
-        java-version: '21.0.7' # Specific version to avoid extraction issues
-        java-package: 'jdk+fx' # This selects liberica-jdk-21-full with JavaFX built-in
+        distribution: 'corretto'
+        java-version: '21'
         cache: 'gradle'
-        check-latest: false # Don't try to get latest version
         
     - name: Display Windows JDK information
       shell: bash
@@ -253,18 +222,10 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update only project version in build.gradle.kts, avoid overwriting JavaFX version
+        # Update project version in build.gradle.kts
         sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+
           
     - name: Build MSI package
       run: ./gradlew packageMsi --no-daemon
@@ -275,11 +236,7 @@ jobs:
     - name: Rename Windows packages with version
       shell: bash
       run: |
-        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-          version=${GITHUB_REF#refs/tags/}
-        else
-          version="v1.0.0"
-        fi
+        version=${GITHUB_REF#refs/tags/}
         
         # Change MSI file name
         cd app/build/compose/binaries/main/msi/
@@ -345,11 +302,11 @@ jobs:
           ## TalkToFigma Desktop Release
           
           ### 📦 Download
-          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon M1/M2/M3 Macs)
+          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon)
           - **macOS Intel**: `*-intel.dmg` (Intel-based Macs)
           - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe`
           
-          All builds include built-in JavaFX support and macOS builds are signed and notarized for maximum security.
+          All builds are optimized with Skiko for high-quality animations and macOS builds are signed and notarized for maximum security.
           
           ### 🚀 How to install
           **macOS**: 
@@ -358,9 +315,4 @@ jobs:
           
           **Windows**: 
           - **MSI**: Recommended method, official installation on the system
-          - **EXE**: Portable executable file
-          
-          ### ⚠️ Important
-          **macOS**: For builds from the 'main' branch (not releases), the app is not signed and Gatekeeper may show a warning.
-          - Right-click the app → "Open"
-          - Select "Open Anyway" in "System Settings > Security & Privacy" 
+          - **EXE**: Portable executable file" 

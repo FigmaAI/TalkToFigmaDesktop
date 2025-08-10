@@ -362,11 +362,12 @@ fun McpConfigurationDialog(
                             Button(
                                 onClick = {
                                     scope.launch {
-                                        analyticsService?.trackUserAction(
-                                            action = "copy_mcp_config",
+                                        analyticsService?.sendUserAction(
                                             category = "ui_interaction",
-                                            label = "config_dialog"
+                                            action = "copy_mcp_config",
+                                            label = "config_dialog_copy_button"
                                         )
+                                        logger.debug { "MCP config copied" }
                                     }
                                     clipboardManager.setText(AnnotatedString(mcpConfig))
                                     logger.info { "MCP configuration copied to clipboard" }
@@ -572,11 +573,13 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            analyticsService?.trackUserAction(
+                                            val logLabel = "Logs refreshed"
+                                            analyticsService?.sendUserAction(
                                                 action = "refresh_logs",
                                                 category = "ui_interaction",
-                                                label = "log_viewer"
+                                                label = logLabel
                                             )
+                                            logger.debug { logLabel }
                                         }
                                         refreshLogs()
                                     },
@@ -594,10 +597,10 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            analyticsService?.trackUserAction(
-                                                action = "clear_logs",
+                                            analyticsService?.sendUserAction(
                                                 category = "ui_interaction",
-                                                label = "log_viewer"
+                                                action = "clear_logs",
+                                                label = "Clear logs"
                                             )
                                         }
                                         clearLogs()
@@ -616,10 +619,10 @@ fun LogViewerDialog(
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            analyticsService?.trackUserAction(
-                                                action = "copy_logs",
+                                            analyticsService?.sendUserAction(
                                                 category = "ui_interaction",
-                                                label = "log_viewer"
+                                                action = "copy_logs",
+                                                label = "Copy logs to clipboard"
                                             )
                                         }
                                         copyLogs()
@@ -670,9 +673,16 @@ fun LogViewerDialog(
                             // Report Issue button (Primary)
                             Button(
                                 onClick = {
+                                    scope.launch {
+                                        analyticsService?.sendUserAction(
+                                            action = "report_issue",
+                                            category = "ui_interaction",
+                                            label = "Report an Issue"
+                                        )
+                                    }
                                     try {
                                         // Prepare issue content with log data
-                                        val issueTitle = "Bug Report from Cursor Talk to Figma desktop"
+                                        val issueTitle = "Bug Report from Cursor Talk to Figma Desktop"
                                         val issueBody = """
 ## Bug Description
 Please describe the issue you're experiencing:
@@ -754,6 +764,22 @@ What actually happened?
 
 
 fun main() {
+    // Set app name for macOS menu bar and dock
+    System.setProperty("apple.awt.application.name", "Cursor Talk to Figma Desktop")
+    System.setProperty("com.apple.mrj.application.apple.menu.about.name", "Cursor Talk to Figma Desktop")
+    
+    // Additional macOS properties for dock name
+    if (System.getProperty("os.name").lowercase().contains("mac")) {
+        try {
+            val toolkit = java.awt.Toolkit.getDefaultToolkit()
+            val awtAppClassNameField = toolkit.javaClass.getDeclaredField("awtAppClassName")
+            awtAppClassNameField.isAccessible = true
+            awtAppClassNameField.set(toolkit, "Cursor Talk to Figma Desktop")
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to set AWT app class name: ${e.message}" }
+        }
+    }
+    
     application {
         var websocketServerRunning by remember { mutableStateOf(false) }
         var mcpServerRunning by remember { mutableStateOf(false) }
@@ -769,41 +795,58 @@ fun main() {
         
         // Check if it's first time launch and show tutorial
         LaunchedEffect(Unit) {
-            logger.info { "Cursor Talk to Figma desktop application started" }
+            logger.info { "Cursor Talk to Figma Desktop application started" }
             
-            // Initialize Analytics
+            // Initialize basic GA4 Analytics
             try {
                 val analyticsConfig = AnalyticsConfig()
                 if (analyticsConfig.isConfigured()) {
-                    analyticsService = GoogleAnalyticsService(
-                        measurementId = analyticsConfig.measurementId,
-                        apiSecret = analyticsConfig.apiSecret,
-                        debugMode = analyticsConfig.debugMode
-                    )
+                    logger.info { "Initializing basic GA4 analytics..." }
                     
-                    // Initialize crash handler if enabled
-                    if (analyticsConfig.crashReportingEnabled) {
-                        crashHandler = CrashHandler(
-                            analyticsService = analyticsService!!,
-                            appVersion = "1.0.5", // TODO: Get from build config
-                            userId = analyticsConfig.userId
-                        )
-                        logger.info { "Crash handler initialized" }
+                    analyticsService = GoogleAnalyticsService()
+                    
+                    // Initialize basic crash handler
+                    crashHandler = CrashHandler()
+                    
+                    // Set basic uncaught exception handler
+                    Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+                        crashHandler?.handleException(thread, exception)
                     }
                     
-                    // Track app start
-                    analyticsService?.trackAppStart(
-                        appVersion = "1.0.5",
-                        osInfo = analyticsConfig.getOsInfo(),
-                        userId = analyticsConfig.userId
-                    )
+                    // Send standard gtag.js events to GA4
+                    val appStartSuccess = analyticsService?.sendAppStart() ?: false
+                    val engagementSuccess = analyticsService?.sendUserEngagement() ?: false
                     
-                    logger.info { "Analytics initialized successfully" }
+                    // Send first_open event for new users
+                    val firstOpenSuccess = if (analyticsService?.let { true } == true) {
+                        // Check if first time user from preferences
+                        try {
+                            val prefs = Preferences.userNodeForPackage(this@application::class.java)
+                            val hasUsedAppBefore = prefs.getBoolean("analytics_first_open_sent", false)
+                            if (!hasUsedAppBefore) {
+                                prefs.putBoolean("analytics_first_open_sent", true)
+                                analyticsService?.sendFirstOpen() ?: false
+                            } else {
+                                true // Skip first_open for returning users
+                            }
+                        } catch (e: Exception) {
+                            logger.warn(e) { "Failed to check first_open status" }
+                            false
+                        }
+                    } else false
+                    
+                    if (appStartSuccess && engagementSuccess && firstOpenSuccess) {
+                        logger.info { "✅ GA4 events sent successfully (app_start + user_engagement + first_open)" }
+                    } else {
+                        logger.warn { "❌ Some GA4 events failed: app_start=$appStartSuccess, engagement=$engagementSuccess, first_open=$firstOpenSuccess" }
+                    }
+                    
+                    logger.info { "Basic GA4 analytics initialized" }
                 } else {
-                    logger.warn { "Analytics not configured - skipping initialization" }
+                    logger.warn { "GA4 not configured - check .envrc for GOOGLE_ANALYTICS_ID and GOOGLE_ANALYTICS_API_SECRET" }
                 }
             } catch (e: Exception) {
-                logger.error(e) { "Failed to initialize analytics" }
+                logger.error(e) { "Failed to initialize basic analytics" }
             }
             
             try {
@@ -837,8 +880,18 @@ fun main() {
         Tray(
             icon = rememberSizedTrayIconPainter(trayIconPath, 128, 128),
             state = trayState,
-                            tooltip = "Cursor Talk to Figma desktop",
+            tooltip = "Cursor Talk to Figma Desktop",
             menu = {
+                // Track Tray menu open by placing analytics in the first item
+                LaunchedEffect(Unit) {
+                    analyticsService?.sendPageView(
+                        pageTitle = "Tray",
+                        pageLocation = "https://mcp.metadata.co.kr/tray", 
+                        pagePath = "/tray"
+                    )
+                    logger.debug { "Tray menu opened" }
+                }
+                
                 // Status
                 val wsStatus = if (websocketServerRunning) "Running" else "Stopped"
                 val mcpStatus = if (mcpServerRunning) "Running" else "Stopped"
@@ -850,11 +903,12 @@ fun main() {
                 // MCP Configuration
                 Item("MCP Configuration", onClick = {
                     scope.launch {
-                        analyticsService?.trackUserAction(
-                            action = "open_mcp_config",
-                            category = "ui_interaction",
-                            label = "tray_menu"
+                        analyticsService?.sendPageView(
+                            pageTitle = "MCP Configuration",
+                            pageLocation = "https://mcp.metadata.co.kr/config",
+                            pagePath = "/config"
                         )
+                        logger.debug { "MCP Configuration opened" }
                     }
                     showMcpConfigDialog = true
                 })
@@ -862,11 +916,12 @@ fun main() {
                 // View Logs
                 Item("View Logs", onClick = {
                     scope.launch {
-                        analyticsService?.trackUserAction(
-                            action = "view_logs",
-                            category = "ui_interaction",
-                            label = "tray_menu"
+                        analyticsService?.sendPageView(
+                            pageTitle = "View Logs",
+                            pageLocation = "https://mcp.metadata.co.kr/logs",
+                            pagePath = "/logs"
                         )
+                        logger.debug { "Log Viewer opened" }
                     }
                     showLogViewerDialog = true
                 })
@@ -874,11 +929,12 @@ fun main() {
                 // Tutorial
                 Item("Tutorial", onClick = {
                     scope.launch {
-                        analyticsService?.trackUserAction(
-                            action = "view_tutorial",
-                            category = "ui_interaction",
-                            label = "tray_menu"
+                        analyticsService?.sendPageView(
+                            pageTitle = "Tutorial",
+                            pageLocation = "https://mcp.metadata.co.kr/tutorial",
+                            pagePath = "/tutorial"
                         )
+                        logger.debug { "Tutorial opened" }
                     }
                     showTutorialDialog = true
                 })
@@ -911,12 +967,14 @@ fun main() {
                                     logger.info { "✅ WebSocket server started successfully on port $wsPort" }
                                     
                                     // Track WebSocket server start with performance data
-                                    analyticsService?.trackUserAction(
-                                        action = "start_websocket_server",
+                                    val logLabel = "WebSocket server started"
+                                    analyticsService?.sendUserAction(
                                         category = "server_management",
-                                        label = "port_$wsPort",
+                                        action = "start_websocket_server",
+                                        label = logLabel,
                                         value = startupTime.toInt()
                                     )
+                                    logger.debug { logLabel }
                                     
                                     // Start MCP server with port cleanup
                                     val mcpPort = 3056
@@ -999,11 +1057,13 @@ fun main() {
                     } else {
                         Item("Stop WebSocket Server", onClick = {
                             scope.launch {
-                                analyticsService?.trackUserAction(
+                                val logLabel = "WebSocket server stopped"
+                                analyticsService?.sendUserAction(
                                     action = "stop_websocket_server",
                                     category = "server_management",
-                                    label = "manual_stop"
+                                    label = logLabel
                                 )
+                                logger.debug { logLabel }
                             }
                             try {
                                 webSocketServer?.stop()
@@ -1034,12 +1094,14 @@ fun main() {
                                         logger.info { "✅ MCP server started successfully on http://localhost:$mcpPort/sse" }
                                         
                                         // Track MCP server start with performance data
-                                        analyticsService?.trackUserAction(
+                                        val logLabel = "MCP server started"
+                                        analyticsService?.sendUserAction(
                                             action = "start_mcp_server",
                                             category = "server_management",
-                                            label = "port_$mcpPort",
+                                            label = logLabel,
                                             value = startupTime.toInt()
                                         )
+                                        logger.debug { logLabel }
                                     } else {
                                         logger.error { "❌ Failed to make port $mcpPort available for MCP server" }
                                     }
@@ -1053,11 +1115,13 @@ fun main() {
                     } else {
                         Item("Stop MCP Server", onClick = {
                             scope.launch {
-                                analyticsService?.trackUserAction(
-                                    action = "stop_mcp_server",
+                                val logLabel = "MCP server stopped"
+                                analyticsService?.sendUserAction(
                                     category = "server_management",
-                                    label = "manual_stop"
+                                    action = "stop_mcp_server",
+                                    label = logLabel
                                 )
+                                logger.debug { logLabel }
                             }
                             try {
                                 mcpServer?.stop()
@@ -1075,11 +1139,13 @@ fun main() {
                 // Emergency action
                 Item("Kill All Servers", onClick = {
                     scope.launch {
-                        analyticsService?.trackUserAction(
+                        val logLabel = "All servers killed"
+                        analyticsService?.sendUserAction(
                             action = "kill_all_servers",
                             category = "emergency_action",
-                            label = "force_stop"
+                            label = logLabel
                         )
+                        logger.debug { logLabel }
                     }
                     try {
                         logger.info { "User requested to kill all servers" }
@@ -1101,11 +1167,13 @@ fun main() {
                 
                 Item("Exit", onClick = {
                     scope.launch {
-                        analyticsService?.trackUserAction(
-                            action = "app_exit",
+                        val logLabel = "App exit requested"
+                        analyticsService?.sendUserAction(
                             category = "app_lifecycle",
-                            label = "user_initiated"
+                            action = "app_exit",
+                            label = logLabel
                         )
+                        logger.debug { logLabel }
                     }
                     try {
                         if (mcpServerRunning) {
@@ -1117,7 +1185,7 @@ fun main() {
                         
                         // Cleanup analytics
                         crashHandler?.cleanup()
-                        analyticsService?.close()
+                        // Analytics service cleanup is automatic
                     } catch (e: Exception) {
                         logger.error(e) { "Error stopping servers during exit" }
                     }
@@ -1145,7 +1213,8 @@ fun main() {
         // Tutorial Dialog
         TutorialDialog(
             isVisible = showTutorialDialog,
-            onDismiss = { showTutorialDialog = false }
+            onDismiss = { showTutorialDialog = false },
+            analyticsService = analyticsService
         )
     }
 } 

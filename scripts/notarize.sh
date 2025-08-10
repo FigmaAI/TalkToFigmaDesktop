@@ -90,9 +90,47 @@ echo ""
 if [ -d "$APP_PATH" ]; then
     echo "🔍 [Step 1/5] App already exists at: $APP_PATH. Skipping build step."
 else
-    echo "🔨 [Step 1/5] Building the app using './gradlew createDistributable'..."
+    echo "🔨 [Step 1/5] Processing analytics configuration and building the app..."
+    
+    # === Process Analytics Configuration ===
+    echo "📊 Processing analytics configuration for notarization build..."
+    ANALYTICS_PROPS_PATH="app/src/main/resources/analytics.properties"
+    ANALYTICS_BACKUP_PATH="app/src/main/resources/analytics.properties.notarize.backup"
+    
+    # Check if environment variables are set for analytics
+    if [ -n "$GOOGLE_ANALYTICS_ID" ] && [ -n "$GOOGLE_ANALYTICS_API_SECRET" ]; then
+        echo "✅ Google Analytics environment variables found for notarization build"
+        echo "   - GA4 Measurement ID: $GOOGLE_ANALYTICS_ID"
+        echo "   - API Secret: $(echo "$GOOGLE_ANALYTICS_API_SECRET" | sed 's/./*/g')"
+        
+        # Backup original template file
+        cp "$ANALYTICS_PROPS_PATH" "$ANALYTICS_BACKUP_PATH"
+        
+        # Process template variables
+        echo "🔄 Processing analytics template variables for notarization build..."
+        sed -i.tmp \
+            -e "s/{{GOOGLE_ANALYTICS_ID}}/$GOOGLE_ANALYTICS_ID/g" \
+            -e "s/{{GOOGLE_ANALYTICS_API_SECRET}}/$GOOGLE_ANALYTICS_API_SECRET/g" \
+            "$ANALYTICS_PROPS_PATH"
+        rm "${ANALYTICS_PROPS_PATH}.tmp"
+        
+        echo "✅ Analytics configuration processed for notarization build"
+    else
+        echo "⚠️  Warning: Google Analytics environment variables not set for notarization build"
+        echo "   The app will be built without analytics functionality"
+    fi
+    
+    # Build the app
+    echo "🔨 Building the app using './gradlew createDistributable'..."
     # We ONLY run createDistributable which creates the .app, not packageDmg
     ./gradlew createDistributable
+    
+    # Restore analytics template after build
+    if [ -f "$ANALYTICS_BACKUP_PATH" ]; then
+        echo "🔄 Restoring analytics configuration template after notarization build..."
+        mv "$ANALYTICS_BACKUP_PATH" "$ANALYTICS_PROPS_PATH"
+        echo "✅ Analytics template restored for development"
+    fi
 fi
 
 if [ ! -d "$APP_PATH" ]; then

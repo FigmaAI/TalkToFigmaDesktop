@@ -1,226 +1,216 @@
 package kr.co.metadata.mcp.analytics
 
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import org.json.JSONArray
-import java.io.IOException
-import java.util.concurrent.TimeUnit
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.*
+import java.util.Properties
 
 /**
- * Google Analytics service for crash reporting and app analytics
- * Supports both Google Analytics 4 (GA4) and Universal Analytics
+ * Basic GA4 Measurement Protocol implementation
  */
-class GoogleAnalyticsService(
-    private val measurementId: String,
-    private val apiSecret: String? = null,
-    private val debugMode: Boolean = false
-) {
+class GoogleAnalyticsService {
     private val logger = KotlinLogging.logger {}
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-
-    companion object {
-        private const val GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
-        private const val GA4_DEBUG_ENDPOINT = "https://www.google-analytics.com/debug/mp/collect"
-        private const val UNIVERSAL_ANALYTICS_ENDPOINT = "https://www.google-analytics.com/collect"
-        
-        // Event names for tracking
-        const val EVENT_APP_START = "app_start"
-        const val EVENT_APP_CRASH = "app_crash"
-        const val EVENT_FIGMA_CONNECTION = "figma_connection"
-        const val EVENT_MCP_REQUEST = "mcp_request"
-        const val EVENT_ERROR = "app_error"
-        const val EVENT_USER_ACTION = "user_action"
+    
+    // Use AnalyticsConfig for centralized configuration management
+    private val analyticsConfig = AnalyticsConfig()
+    private val measurementId: String? = analyticsConfig.measurementId
+    private val apiSecret: String? = analyticsConfig.apiSecret
+    
+    // Basic device/environment info
+    private val osName = System.getProperty("os.name")
+    private val osVersion = System.getProperty("os.version") 
+    private val osArch = System.getProperty("os.arch")
+    private val javaVersion = System.getProperty("java.version")
+    private val userLocale = Locale.getDefault().toString()
+    
+    // Generate persistent client ID for this app instance
+    private val clientId = UUID.randomUUID().toString()
+    
+    // Generate persistent session ID for this app session
+    private val sessionId = UUID.randomUUID().toString()
+    
+    // Get app version dynamically
+    private val appVersion = getAppVersion()
+    
+    // Get system timezone
+    private val timeZone = TimeZone.getDefault().id
+    
+    init {
+        logger.info { "GA4 Analytics Service initialized" }
+        logger.debug { "Measurement ID: $measurementId" }
+        logger.debug { "Client ID: $clientId" }
+        logger.debug { "Session ID: $sessionId" }
+        logger.debug { "OS: $osName $osVersion ($osArch)" }
+        logger.debug { "App Version: $appVersion" }
+        logger.debug { "Timezone: $timeZone" }
     }
-
+    
     /**
-     * Send event to Google Analytics 4
+     * Send page_view event (gtag.js standard)
      */
-    suspend fun sendEvent(
-        eventName: String,
-        parameters: Map<String, Any> = emptyMap(),
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val endpoint = if (debugMode) GA4_DEBUG_ENDPOINT else GA4_ENDPOINT
+    fun sendPageView(pageTitle: String, pageLocation: String, pagePath: String? = null): Boolean {
+        return sendEvent("page_view", mapOf(
+            "page_title" to pageTitle,
+            "page_location" to pageLocation,
+            "page_path" to (pagePath ?: pageLocation)
+        ))
+    }
+    
+    /**
+     * Send app_start event (gtag.js standard for apps)
+     */
+    fun sendAppStart(): Boolean {
+        return sendEvent("app_start", mapOf(
+            "app_version" to appVersion,
+            "platform" to "desktop"
+        ))
+    }
+    
+    /**
+     * Send user_engagement event (gtag.js standard)
+     */
+    fun sendUserEngagement(engagementTimeMs: Long = 1000): Boolean {
+        return sendEvent("user_engagement", mapOf(
+            "engagement_time_msec" to engagementTimeMs
+        ))
+    }
+    
+    /**
+     * Send server action event (custom)
+     */
+    fun sendServerAction(action: String, serverType: String, port: Int? = null, duration: Long? = null): Boolean {
+        val params = mutableMapOf<String, Any>(
+            "action" to action,
+            "server_type" to serverType
+        )
+        port?.let { params["port"] = it }
+        duration?.let { params["startup_time_ms"] = it }
+        
+        return sendEvent("server_action", params)
+    }
+    
+    /**
+     * Send user action event (custom)
+     */
+    fun sendUserAction(action: String, category: String, label: String? = null, value: Int? = null): Boolean {
+        val params = mutableMapOf<String, Any>(
+            "action" to action,
+            "category" to category
+        )
+        label?.let { params["label"] = it }
+        value?.let { params["value"] = it }
+        
+        return sendEvent("user_action", params)
+    }
+    
+    /**
+     * Send first_open event for new users (GA4 standard)
+     */
+    fun sendFirstOpen(): Boolean {
+        return sendEvent("first_open", mapOf(
+            "platform" to "desktop"
+        ))
+    }
+    
+    /**
+     * Send any event to GA4 with custom parameters
+     */
+    private fun sendEvent(eventName: String, customParams: Map<String, Any> = emptyMap()): Boolean {
+        if (!isConfigured()) {
+            logger.warn { "GA4 not configured - skipping $eventName event" }
+            return false
+        }
+        
+        return try {
+            val url = URL("https://www.google-analytics.com/mp/collect" +
+                    "?measurement_id=$measurementId&api_secret=$apiSecret")
             
-            val eventData = JSONObject().apply {
-                put("client_id", generateClientId())
-                put("events", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("name", eventName)
-                        if (parameters.isNotEmpty()) {
-                            put("params", JSONObject(parameters))
-                        }
-                    })
-                })
-                if (userId != null) {
-                    put("user_id", userId)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            
+            // Base parameters  
+            val params = mutableMapOf<String, Any>(
+                "session_id" to sessionId,
+                "app_version" to appVersion,
+                "os_name" to osName,
+                "os_version" to osVersion,
+                "os_arch" to osArch,
+                "java_version" to javaVersion,
+                "user_locale" to userLocale,
+                "timezone" to timeZone,
+                "engagement_time_msec" to 1
+                
+                
+            )
+            
+            // Add custom parameters
+            params.putAll(customParams)
+            
+            val paramsJson = params.entries.joinToString(",\n") { (key, value) ->
+                if (value is String) "    \"$key\": \"$value\""
+                else "    \"$key\": $value"
+            }
+            
+            val body = """
+            {
+              "client_id": "$clientId",
+              "events": [
+                {
+                  "name": "$eventName",
+                  "params": {
+$paramsJson
+                  }
                 }
+              ]
             }
-
-            val request = Request.Builder()
-                .url("$endpoint?measurement_id=$measurementId${apiSecret?.let { "&api_secret=$it" } ?: ""}")
-                .post(eventData.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            // Minimal logging
-            logger.debug { "Sending analytics event: $eventName" }
+            """.trimIndent()
             
-            val response = client.newCall(request).execute()
-            val success = response.isSuccessful
+            logger.debug { "Sending $eventName event to GA4" }
+            logger.debug { "Request body: $body" }
             
-            if (!success) {
-                logger.warn { "Failed to send analytics event: ${response.code}" }
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            
+            val responseCode = conn.responseCode
+            logger.info { "GA4 Response Code: $responseCode" }
+            
+            if (responseCode in 200..299) {
+                logger.info { "✅ $eventName event sent successfully" }
+                true
+            } else {
+                logger.warn { "❌ Failed to send $eventName event: $responseCode" }
+                false
             }
-            
-            response.close()
-            success
             
         } catch (e: Exception) {
-            logger.error(e) { "Error sending analytics event: $eventName" }
+            logger.error(e) { "Error sending $eventName event" }
             false
         }
     }
-
+    
     /**
-     * Send crash report with detailed information
+     * Check if GA4 is properly configured
      */
-    suspend fun sendCrashReport(
-        exception: Throwable,
-        additionalInfo: Map<String, Any> = emptyMap(),
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val crashInfo = mutableMapOf<String, Any>().apply {
-            put("exception_type", exception.javaClass.simpleName)
-            put("exception_message", exception.message ?: "Unknown error")
-            put("stack_trace", getStackTrace(exception))
-            putAll(additionalInfo)
+    private fun isConfigured(): Boolean {
+        return !measurementId.isNullOrBlank() && !apiSecret.isNullOrBlank()
+    }
+    
+    /**
+     * Get app version from version.properties
+     */
+    private fun getAppVersion(): String {
+        return try {
+            val properties = Properties()
+            val versionStream = javaClass.getResourceAsStream("/version.properties")
+            versionStream?.use { stream ->
+                properties.load(stream)
+                properties.getProperty("version", "unknown")
+            } ?: "unknown"
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to load app version from version.properties" }
+            "unknown"
         }
-
-        return@withContext sendEvent(EVENT_APP_CRASH, crashInfo, userId)
     }
-
-    /**
-     * Send error report (non-crash errors)
-     */
-    suspend fun sendErrorReport(
-        errorMessage: String,
-        errorCode: String? = null,
-        additionalInfo: Map<String, Any> = emptyMap(),
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val errorInfo = mutableMapOf<String, Any>().apply {
-            put("error_message", errorMessage)
-            if (errorCode != null) put("error_code", errorCode)
-            putAll(additionalInfo)
-        }
-
-        return@withContext sendEvent(EVENT_ERROR, errorInfo, userId)
-    }
-
-    /**
-     * Track user actions
-     */
-    suspend fun trackUserAction(
-        action: String,
-        category: String? = null,
-        label: String? = null,
-        value: Int? = null,
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val actionInfo = mutableMapOf<String, Any>().apply {
-            put("action", action)
-            if (category != null) put("category", category)
-            if (label != null) put("label", label)
-            if (value != null) put("value", value)
-        }
-
-        return@withContext sendEvent(EVENT_USER_ACTION, actionInfo, userId)
-    }
-
-    /**
-     * Track Figma connection events
-     */
-    suspend fun trackFigmaConnection(
-        connectionType: String,
-        success: Boolean,
-        errorMessage: String? = null,
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val connectionInfo = mutableMapOf<String, Any>().apply {
-            put("connection_type", connectionType)
-            put("success", success)
-            if (errorMessage != null) put("error_message", errorMessage)
-        }
-
-        return@withContext sendEvent(EVENT_FIGMA_CONNECTION, connectionInfo, userId)
-    }
-
-    /**
-     * Track MCP request events
-     */
-    suspend fun trackMcpRequest(
-        requestType: String,
-        success: Boolean,
-        duration: Long? = null,
-        errorMessage: String? = null,
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val requestInfo = mutableMapOf<String, Any>().apply {
-            put("request_type", requestType)
-            put("success", success)
-            if (duration != null) put("duration_ms", duration)
-            if (errorMessage != null) put("error_message", errorMessage)
-        }
-
-        return@withContext sendEvent(EVENT_MCP_REQUEST, requestInfo, userId)
-    }
-
-    /**
-     * Track app start event
-     */
-    suspend fun trackAppStart(
-        appVersion: String,
-        osInfo: String,
-        userId: String? = null
-    ): Boolean = withContext(Dispatchers.IO) {
-        val startInfo = mapOf(
-            "app_version" to appVersion,
-            "os_info" to osInfo
-        )
-
-        return@withContext sendEvent(EVENT_APP_START, startInfo, userId)
-    }
-
-    /**
-     * Generate a unique client ID for analytics
-     */
-    private fun generateClientId(): String {
-        return "desktop_${System.currentTimeMillis()}_${(Math.random() * 1000000).toInt()}"
-    }
-
-    /**
-     * Get formatted stack trace
-     */
-    private fun getStackTrace(exception: Throwable): String {
-        return exception.stackTraceToString()
-    }
-
-    /**
-     * Close the HTTP client
-     */
-    fun close() {
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
-    }
-} 
+}

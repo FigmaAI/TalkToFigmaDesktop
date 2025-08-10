@@ -23,27 +23,145 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.DialogState
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberDialogState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.awt.SwingPanel
 import mu.KotlinLogging
 import kotlinx.coroutines.delay
-import javafx.application.Platform
-import javafx.embed.swing.JFXPanel
-import javafx.scene.Scene
-import javafx.scene.layout.StackPane
-import javafx.scene.media.Media
-import javafx.scene.media.MediaPlayer
-import javafx.scene.media.MediaView
-import javafx.util.Duration
-import java.io.File
-import javax.swing.SwingUtilities
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import org.jetbrains.skia.Data
+import org.jetbrains.skia.Image as SkiaImage
+import org.jetbrains.skia.Codec
+import org.jetbrains.skia.Bitmap
+import java.awt.Canvas
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import javax.swing.Timer
+import java.io.InputStream
 
 private val logger = KotlinLogging.logger {}
+
+@Composable
+fun WebPAnimationViewer(
+    resourcePath: String,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null
+) {
+    var currentFrameIndex by remember(resourcePath) { mutableStateOf(0) }
+    var animationFrames by remember(resourcePath) { mutableStateOf<List<androidx.compose.ui.graphics.ImageBitmap>>(emptyList()) }
+    var isLoading by remember(resourcePath) { mutableStateOf(true) }
+    
+    // Load WebP animation frames
+    LaunchedEffect(resourcePath) {
+        try {
+            val resourceStream = javaClass.classLoader.getResourceAsStream(resourcePath)
+            if (resourceStream != null) {
+                val data = Data.makeFromBytes(resourceStream.readBytes())
+                val codec = Codec.makeFromData(data)
+                
+                if (codec != null && codec.frameCount > 0) {
+                    val frames = mutableListOf<androidx.compose.ui.graphics.ImageBitmap>()
+                    
+                    // Extract each frame from the WebP animation
+                    for (frameIndex in 0 until codec.frameCount) {
+                        try {
+                            val bitmap = Bitmap()
+                            if (bitmap.allocN32Pixels(codec.width, codec.height)) {
+                                // Read pixels for this frame
+                                codec.readPixels(bitmap, frameIndex)
+                                val skiaImage = SkiaImage.makeFromBitmap(bitmap)
+                                frames.add(skiaImage.toComposeImageBitmap())
+                                logger.debug { "Extracted frame $frameIndex from WebP: $resourcePath" }
+                            }
+                        } catch (e: Exception) {
+                            logger.warn(e) { "Failed to extract frame $frameIndex from WebP: $resourcePath" }
+                        }
+                    }
+                    
+                    if (frames.isNotEmpty()) {
+                        animationFrames = frames
+                        logger.info { "Loaded ${frames.size} frames from WebP animation: $resourcePath" }
+                    } else {
+                        // Fallback to single image
+                        val skiaImage = SkiaImage.makeFromEncoded(data.bytes)
+                        if (skiaImage != null) {
+                            animationFrames = listOf(skiaImage.toComposeImageBitmap())
+                            logger.info { "Loaded WebP as static image: $resourcePath" }
+                        }
+                    }
+                    
+                    isLoading = false
+                } else {
+                    logger.error { "Failed to create codec or no frames in WebP: $resourcePath" }
+                    isLoading = false
+                }
+            } else {
+                logger.error { "Resource not found: $resourcePath" }
+                isLoading = false
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "Error loading WebP animation: $resourcePath" }
+            isLoading = false
+        }
+    }
+    
+    // Animation timer - only animate if we have multiple frames and loading is complete
+    LaunchedEffect(animationFrames, isLoading) {
+        if (animationFrames.size > 1 && !isLoading) {
+            // Reset to first frame when starting new animation
+            currentFrameIndex = 0
+            while (true) {
+                delay(50) // 50ms per frame (20 FPS) for smooth animation
+                currentFrameIndex = (currentFrameIndex + 1) % animationFrames.size
+            }
+        }
+    }
+    
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        when {
+            isLoading -> {
+                CircularProgressIndicator()
+            }
+            animationFrames.isNotEmpty() -> {
+                Image(
+                    bitmap = animationFrames[currentFrameIndex],
+                    contentDescription = contentDescription,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            else -> {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFFFA500),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Text(
+                        text = "Failed to load WebP animation",
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TutorialDialog(
     isVisible: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    analyticsService: kr.co.metadata.mcp.analytics.GoogleAnalyticsService? = null
 ) {
     if (isVisible) {
         val dialogState = rememberDialogState(
@@ -61,130 +179,54 @@ fun TutorialDialog(
         ) {
             val isDarkTheme = isSystemInDarkTheme()
             val uriHandler = LocalUriHandler.current
+            val scope = rememberCoroutineScope()
             var currentVideoIndex by remember { mutableStateOf(0) }
             
-            // 비디오 파일 경로 목록
+            // WebP 애니메이션 파일 경로 목록
             val videoTutorials = listOf(
                 TutorialVideo(
                     title = "Step 1: Open MCP Configuration",
                     description = "Go to MCP Configuration menu from the tray and copy the MCP server addresses",
-                    videoPath = "tutorials/tutorial01.mp4"
+                    webpPath = "tutorials/tutorial01.webp"
                 ),
                 TutorialVideo(
                     title = "Step 2: Configure IDE",
                     description = "In Cursor IDE, go to Settings → Tools & Integrations and paste the MCP server JSON configuration",
-                    videoPath = "tutorials/tutorial02.mp4"
+                    webpPath = "tutorials/tutorial02.webp"
                 ),
                 TutorialVideo(
                     title = "Step 3: Start Services",
                     description = "Click \"Start Services\" in the tray menu and ensure Tools are enabled in MCP settings",
-                    videoPath = "tutorials/tutorial03.mp4"
+                    webpPath = "tutorials/tutorial03.webp"
                 ),
                 TutorialVideo(
                     title = "Step 4: Run Figma Plugin",
                     description = "Find and run the Cursor Talk To Figma plugin in Figma",
-                    videoPath = "tutorials/tutorial04.mp4"
+                    webpPath = "tutorials/tutorial04.webp"
                 ),
                 TutorialVideo(
                     title = "Step 5: Connect to Desktop",
                     description = "Toggle \"Use Localhost\" on and click Connect button to establish connection",
-                    videoPath = "tutorials/tutorial05.mp4"
+                    webpPath = "tutorials/tutorial05.webp"
                 )
             )
             
             val totalVideos = videoTutorials.size
             
-            // JavaFX MediaPlayer state
-            var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
-            var jfxPanel by remember { mutableStateOf<JFXPanel?>(null) }
-            
-            // Initialize JavaFX when currentVideoIndex changes or dialog reopens
-            LaunchedEffect(currentVideoIndex, isVisible) {
-                if (isVisible) {
-                    val videoPath = videoTutorials[currentVideoIndex].videoPath
-                    val resourceUrl = javaClass.classLoader.getResource(videoPath)
-                    val darkTheme = isDarkTheme // Capture the theme value
-                    
-                    if (resourceUrl != null) {
-                        // Ensure JavaFX Platform is ready
-                        try {
-                            Platform.setImplicitExit(false)
-                        } catch (e: Exception) {
-                            logger.debug(e) { "Platform already initialized" }
-                        }
-                        
-                        Platform.runLater {
-                            try {
-                                // Dispose previous media player
-                                mediaPlayer?.dispose()
-                                
-                                // Create new media and player with error handling
-                                val media = Media(resourceUrl.toExternalForm())
-                                val newMediaPlayer = MediaPlayer(media)
-                            
-                            newMediaPlayer.setOnEndOfMedia {
-                                logger.info { "Video ${currentVideoIndex + 1} ended" }
-                                if (currentVideoIndex < totalVideos - 1) {
-                                    SwingUtilities.invokeLater {
-                                        currentVideoIndex++
-                                    }
-                                }
-                            }
-                            
-                            newMediaPlayer.setOnError {
-                                logger.error { "MediaPlayer error: ${newMediaPlayer.error}" }
-                            }
-                            
-                            // Create MediaView and Scene
-                            val mediaView = MediaView(newMediaPlayer)
-                            mediaView.isPreserveRatio = true
-                            
-                            val root = StackPane()
-                            root.children.add(mediaView)
-                            
-                            // Set background color based on theme
-                            val backgroundColor = if (darkTheme) "#2D2D2D" else "#FFFFFF"
-                            root.style = "-fx-background-color: $backgroundColor;"
-                            
-                            val scene = Scene(root)
-                            scene.fill = javafx.scene.paint.Paint.valueOf(backgroundColor)
-                            jfxPanel?.scene = scene
-                            
-                            // Bind MediaView size to scene size
-                            mediaView.fitWidthProperty().bind(scene.widthProperty())
-                            mediaView.fitHeightProperty().bind(scene.heightProperty())
-                            
-                            mediaPlayer = newMediaPlayer
-                            newMediaPlayer.play()
-                            
-                        } catch (e: Exception) {
-                            logger.error(e) { "Failed to load video: $videoPath. JavaFX Error: ${e.message}" }
-                            // Try to reinitialize JavaFX and retry once
-                            try {
-                                Platform.runLater {
-                                    logger.info { "Retrying video initialization after JavaFX error" }
-                                }
-                            } catch (retryException: Exception) {
-                                logger.error(retryException) { "JavaFX retry also failed" }
-                            }
-                        }
-                    }
-                    } else {
-                        logger.error { "Video resource not found: $videoPath" }
-                    }
+            // Send analytics event when step changes
+            LaunchedEffect(currentVideoIndex) {
+                val currentTutorial = videoTutorials[currentVideoIndex]
+                scope.launch {
+                    analyticsService?.sendPageView(
+                        pageTitle = currentTutorial.title,
+                        pageLocation = "https://mcp.metadata.co.kr/tutorial/step${currentVideoIndex + 1}",
+                        pagePath = "/tutorial/step${currentVideoIndex + 1}"
+                    )
+                    logger.debug { "Tutorial step analytics sent: ${currentTutorial.title}" }
                 }
             }
             
-            // Clean up on dialog dismiss
-            DisposableEffect(isVisible) {
-                onDispose {
-                    if (!isVisible) {
-                        Platform.runLater {
-                            mediaPlayer?.dispose()
-                        }
-                    }
-                }
-            }
+            // Removed auto-advance timer - let users control their own pace
 
             MaterialTheme(
                 colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
@@ -239,7 +281,7 @@ fun TutorialDialog(
                             )
                         }
 
-                        // Video player card
+                        // WebP Animation display card
                         OutlinedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -251,34 +293,25 @@ fun TutorialDialog(
                                 enabled = true
                             )
                         ) {
-                            // Video section with JavaFX MediaPlayer
+                            // WebP Animation section
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(8.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
                             ) {
-                                                                    SwingPanel(
-                                        background = if (isDarkTheme) androidx.compose.ui.graphics.Color(0xFF2D2D2D) else androidx.compose.ui.graphics.Color.White,
-                                        modifier = Modifier.fillMaxSize(),
-                                        factory = {
-                                            JFXPanel().also { 
-                                                jfxPanel = it
-                                                // Initialize JavaFX Platform explicitly
-                                                try {
-                                                    Platform.setImplicitExit(false)
-                                                    if (!Platform.isFxApplicationThread()) {
-                                                        Platform.runLater {
-                                                            // JavaFX Platform initialized
-                                                            logger.info { "JavaFX Platform initialized" }
-                                                        }
-                                                    }
-                                                } catch (e: Exception) {
-                                                    logger.warn(e) { "JavaFX Platform initialization warning" }
-                                                }
-                                            }
-                                        }
+                                val currentWebpPath = videoTutorials[currentVideoIndex].webpPath
+                                
+                                // WebP 애니메이션 표시 (Skiko 기반)
+                                // key를 사용해서 스텝이 바뀔 때마다 컴포넌트 완전 재생성
+                                key(currentVideoIndex) {
+                                    WebPAnimationViewer(
+                                        resourcePath = currentWebpPath,
+                                        contentDescription = "Tutorial ${currentVideoIndex + 1}",
+                                        modifier = Modifier.fillMaxSize()
                                     )
+                                }
                             }
                         }
 
@@ -342,26 +375,26 @@ fun TutorialDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Previous button
-                            if (currentVideoIndex > 0) {
-                                OutlinedButton(
-                                    onClick = { 
+                            // Previous button (always visible for layout consistency)
+                            OutlinedButton(
+                                onClick = { 
+                                    if (currentVideoIndex > 0) {
                                         currentVideoIndex--
-                                    },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = if (isDarkTheme) Color.White else Color(0xFF666666)
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Previous")
-                                }
-                            } else {
-                                Spacer(modifier = Modifier.width(1.dp))
+                                    }
+                                },
+                                enabled = currentVideoIndex > 0,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (isDarkTheme) Color.White else Color(0xFF666666),
+                                    disabledContentColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.7f)
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Previous")
                             }
 
                             // Step indicator dots
@@ -420,7 +453,7 @@ fun TutorialDialog(
 data class TutorialVideo(
     val title: String,
     val description: String,
-    val videoPath: String
+    val webpPath: String
 )
 
 @Composable
@@ -436,4 +469,4 @@ fun SelectableText(
             style = style
         )
     }
-} 
+}

@@ -48,58 +48,114 @@ check_rosetta() {
     fi
 }
 
-# Download Intel JDK Full with JavaFX (if not already downloaded)
+# Download Intel JDK
 download_intel_jdk() {
     # JDK installation path
     JDK_INSTALL_DIR="$HOME/.jdks"
     mkdir -p "$JDK_INSTALL_DIR"
     
-    # Set Intel JDK Full path
-    INTEL_JDK_VERSION="21.0.1"
-    INTEL_JDK_DIR="$JDK_INSTALL_DIR/jdk-$INTEL_JDK_VERSION-full-intel"
+    # Set Intel JDK path
+    INTEL_JDK_VERSION="21.0.5.11.1"
+    INTEL_JDK_DIR="$JDK_INSTALL_DIR/amazon-corretto-$INTEL_JDK_VERSION-intel"
     
-    # Check if JDK is already downloaded
-    if [ -d "$INTEL_JDK_DIR" ]; then
-        echo "Intel JDK Full already exists at $INTEL_JDK_DIR"
+    # Check if JDK is already downloaded and has proper structure
+    if [ -d "$INTEL_JDK_DIR" ] && [ -f "$INTEL_JDK_DIR/Contents/Home/bin/java" ]; then
+        echo "Intel JDK already exists at $INTEL_JDK_DIR"
     else
-        echo "Downloading Intel JDK Full with JavaFX..."
-        # JDK download URL (BellSoft Liberica JDK Full with JavaFX - for Intel Mac)
-        JDK_URL="https://download.bell-sw.com/java/21.0.1+12/bellsoft-jdk21.0.1+12-macos-amd64-full.tar.gz"
-        JDK_TAR="$JDK_INSTALL_DIR/intel-jdk-full.tar.gz"
+        echo "Downloading Intel JDK..."
+        # JDK download URL (AWS Corretto JDK - for Intel Mac)
+        JDK_URL="https://corretto.aws/downloads/resources/$INTEL_JDK_VERSION/amazon-corretto-$INTEL_JDK_VERSION-macosx-x64.tar.gz"
+        JDK_TAR="$JDK_INSTALL_DIR/amazon-corretto-intel.tar.gz"
         
         # Download JDK
         curl -L "$JDK_URL" -o "$JDK_TAR"
         
-        # Extract archive
+        # Extract archive directly to final directory
+        echo "Extracting JDK to $INTEL_JDK_DIR..."
         mkdir -p "$INTEL_JDK_DIR"
-        tar -xf "$JDK_TAR" -C "$JDK_INSTALL_DIR"
+        tar -xf "$JDK_TAR" --strip-components=1 -C "$INTEL_JDK_DIR" || {
+            echo "Failed to extract with strip-components, trying alternative method..."
+            rm -rf "$INTEL_JDK_DIR"
+            mkdir -p "$INTEL_JDK_DIR"
+            
+            # Extract to temporary location first
+            TEMP_EXTRACT_DIR="$JDK_INSTALL_DIR/temp_extract"
+            rm -rf "$TEMP_EXTRACT_DIR"
+            mkdir -p "$TEMP_EXTRACT_DIR"
+            tar -xf "$JDK_TAR" -C "$TEMP_EXTRACT_DIR"
+            
+            # Find the extracted JDK directory
+            EXTRACTED_JDK=$(find "$TEMP_EXTRACT_DIR" -name "*.jdk" -type d | head -1)
+            if [ -z "$EXTRACTED_JDK" ]; then
+                EXTRACTED_JDK=$(find "$TEMP_EXTRACT_DIR" -name "jdk*" -type d | head -1)
+            fi
+            
+            if [ -n "$EXTRACTED_JDK" ]; then
+                echo "Found extracted JDK at: $EXTRACTED_JDK"
+                cp -R "$EXTRACTED_JDK"/* "$INTEL_JDK_DIR/"
+                rm -rf "$TEMP_EXTRACT_DIR"
+                echo "Intel JDK extracted to $INTEL_JDK_DIR"
+            else
+                echo "Failed to find extracted JDK directory"
+                ls -la "$TEMP_EXTRACT_DIR"
+                rm -rf "$TEMP_EXTRACT_DIR"
+                exit 1
+            fi
+        }
         
-        # Find the extracted directory name
-        EXTRACTED_DIR=$(find "$JDK_INSTALL_DIR" -maxdepth 1 -name "jdk-21.0.1*-full" -type d | head -1)
+        # Clean up downloaded tar file
+        rm "$JDK_TAR"
         
-        if [ -n "$EXTRACTED_DIR" ]; then
-            # Move extracted files to the desired directory
-            mv "$EXTRACTED_DIR"/* "$INTEL_JDK_DIR"
-            rmdir "$EXTRACTED_DIR"
-            rm "$JDK_TAR"
-            echo "Intel JDK Full downloaded and installed to $INTEL_JDK_DIR"
+        # Verify installation
+        if [ -f "$INTEL_JDK_DIR/Contents/Home/bin/java" ]; then
+            echo "✅ Intel JDK successfully installed to $INTEL_JDK_DIR"
         else
-            echo "Failed to extract JDK Full"
+            echo "❌ Intel JDK installation verification failed"
+            echo "Contents of $INTEL_JDK_DIR:"
+            ls -la "$INTEL_JDK_DIR" || true
             exit 1
         fi
     fi
     
-    echo "Using Intel JDK Full with JavaFX at: $INTEL_JDK_DIR"
-    export INTEL_JDK_PATH="$INTEL_JDK_DIR"
+    echo "Using Intel JDK at: $INTEL_JDK_DIR"
+    export INTEL_JDK_PATH="$INTEL_JDK_DIR/Contents/Home"
 }
 
-# Run build with Intel JDK Full (with JavaFX)
+# Run build with Intel JDK
 build_with_intel_jdk() {
     # Create temporary build directory and result directory
     mkdir -p "$TEMP_BUILD_DIR" "$INTEL_BUILD_DIR/dmg"
     
     # Ensure we don't overwrite any existing builds
     echo "ℹ️ Building Intel-specific version without affecting existing builds..."
+    
+    # === Process Analytics Configuration ===
+    echo "📊 Processing analytics configuration for Intel build..."
+    ANALYTICS_PROPS_PATH="app/src/main/resources/analytics.properties"
+    ANALYTICS_BACKUP_PATH="app/src/main/resources/analytics.properties.intel.backup"
+    
+    # Check if environment variables are set for analytics
+    if [ -n "$GOOGLE_ANALYTICS_ID" ] && [ -n "$GOOGLE_ANALYTICS_API_SECRET" ]; then
+        echo "✅ Google Analytics environment variables found for Intel build"
+        echo "   - GA4 Measurement ID: $GOOGLE_ANALYTICS_ID"
+        echo "   - API Secret: $(echo "$GOOGLE_ANALYTICS_API_SECRET" | sed 's/./*/g')"
+        
+        # Backup original template file
+        cp "$ANALYTICS_PROPS_PATH" "$ANALYTICS_BACKUP_PATH"
+        
+        # Process template variables
+        echo "🔄 Processing analytics template variables for Intel build..."
+        sed -i.tmp \
+            -e "s/{{GOOGLE_ANALYTICS_ID}}/$GOOGLE_ANALYTICS_ID/g" \
+            -e "s/{{GOOGLE_ANALYTICS_API_SECRET}}/$GOOGLE_ANALYTICS_API_SECRET/g" \
+            "$ANALYTICS_PROPS_PATH"
+        rm "${ANALYTICS_PROPS_PATH}.tmp"
+        
+        echo "✅ Analytics configuration processed for Intel production build"
+    else
+        echo "⚠️  Warning: Google Analytics environment variables not set for Intel build"
+        echo "   The app will be built without analytics functionality"
+    fi
     
     # JVM and build options for Intel Mac compatibility
     GRADLE_OPTS="$GRADLE_OPTS -Xmx2G -XX:MaxMetaspaceSize=512m"
@@ -122,6 +178,13 @@ build_with_intel_jdk() {
 
 # Copy and organize build results
 finalize_build() {
+    # === Restore Analytics Configuration Template ===
+    if [ -f "$ANALYTICS_BACKUP_PATH" ]; then
+        echo "🔄 Restoring analytics configuration template after Intel build..."
+        mv "$ANALYTICS_BACKUP_PATH" "$ANALYTICS_PROPS_PATH"
+        echo "✅ Analytics template restored for development"
+    fi
+    
     # Copy results from the default build directory to Intel-specific build directory
     DEFAULT_DMG_DIR="app/build/compose/binaries/main/dmg"
     

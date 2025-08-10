@@ -6,22 +6,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.compose)
-    id("org.openjfx.javafxplugin") version "0.0.14"
+
 }
 
-// Explicitly specify JavaFX settings
-val jfxVersion = "21.0.2" // Declare JavaFX version as a constant to prevent it from using project version
-
-javafx {
-    // CRITICAL: Use the explicit version constant, not a string literal
-    version = jfxVersion
-    
-    // Explicitly specify required modules
-    modules = listOf("javafx.controls", "javafx.media", "javafx.swing")
-    
-    // Liberica Full JDK has JavaFX built-in
-    configuration = "compileOnly"
-}
+// JavaFX completely removed - now using Skiko for WebP animation
 
 group = "kr.co.metadata.mcp"
 version = "1.0.5" // App version
@@ -29,7 +17,14 @@ version = "1.0.5" // App version
 kotlin {
     jvmToolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
-        vendor.set(JvmVendorSpec.BELLSOFT)
+        vendor.set(JvmVendorSpec.AMAZON)
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.AMAZON)
     }
 }
 
@@ -38,6 +33,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         freeCompilerArgs.add("-opt-in=kotlin.RequiresOptIn")
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    sourceCompatibility = "21"
+    targetCompatibility = "21"
 }
 
 dependencies {
@@ -51,8 +51,7 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
 
-    // JavaFX는 플러그인으로 설정되어 있음
-    // JavaFX는 Liberica Full JDK에 내장되어 있으므로 별도 의존성 추가 불필요
+
 
     // MCP Kotlin SDK (includes Ktor dependencies)
     implementation("io.modelcontextprotocol:kotlin-sdk:0.5.0")
@@ -74,6 +73,10 @@ dependencies {
     
     // JSON support for analytics
     implementation("org.json:json:20231013")
+    
+    // Skiko for WebP animation support
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-macos-x64:0.8.4")
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.8.4")
 
     // Test Dependencies
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
@@ -101,7 +104,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "Cursor Talk to Figma desktop"
+            packageName = "Cursor Talk to Figma Desktop"
             packageVersion = project.version.toString()
             
             // Include JRE for self-contained application
@@ -109,7 +112,7 @@ compose.desktop {
 
             macOS {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
-                dockName = "Cursor Talk to Figma desktop"
+                dockName = "Cursor Talk to Figma Desktop"
                 iconFile.set(project.file("src/main/resources/icon.icns"))
                 
                 // Fix LSApplicationCategoryType issue
@@ -126,6 +129,9 @@ compose.desktop {
                 // Optimized JVM arguments
                 jvmArgs(
                     "-Dapple.awt.enableTemplateImages=true",
+                    "-Dcom.apple.mrj.application.apple.menu.about.name=Cursor Talk to Figma Desktop",
+                    "-Dapple.awt.application.name=Cursor Talk to Figma Desktop",
+                    "-Xdock:name=Cursor Talk to Figma Desktop",
                     "-Xms64m",
                     "-Xmx512m",
                     "-XX:+UseG1GC",
@@ -135,6 +141,9 @@ compose.desktop {
                 // Add required Info.plist key for export compliance
                 infoPlist {
                     "ITSAppUsesNonExemptEncryption" to false
+                    "CFBundleDisplayName" to "Cursor Talk to Figma Desktop"
+                    "CFBundleName" to "Cursor Talk to Figma Desktop"
+                    "CFBundleExecutable" to "Cursor Talk to Figma Desktop"
                 }
 
                 // 공통 entitlements 파일 사용 (App Store와 Developer ID 모두 호환)
@@ -169,7 +178,7 @@ compose.desktop {
             }
 
             windows {
-                menuGroup = "Cursor Talk to Figma desktop"
+                menuGroup = "Cursor Talk to Figma Desktop"
                 upgradeUuid = "FCDFDD35-04EB-4698-89F5-3CCAB516B324"
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 // Console app (set to false to hide console window)
