@@ -134,6 +134,9 @@ class McpServer {
     private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<Any>>()
     private var isConnected: Boolean = false
     
+    // Error handling
+    private var onConnectionError: (() -> Unit)? = null
+    
     // Server settings
     private val websocketPort = 3055
     private val wsUrl = "ws://localhost:$websocketPort"
@@ -141,6 +144,13 @@ class McpServer {
     
     // Coroutine scope for managing async operations
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    /**
+     * Set callback for connection errors
+     */
+    fun setConnectionErrorCallback(callback: () -> Unit) {
+        onConnectionError = callback
+    }
     
     /**
      * Get application version from version.properties file generated at build time
@@ -275,6 +285,12 @@ class McpServer {
             
             override fun onError(ex: Exception?) {
                 logger.error { "Socket error: ${ex?.message}" }
+                
+                // Check if this is a "Connection refused" error and trigger dialog
+                val errorMessage = ex?.message ?: "Unknown error"
+                if (errorMessage.contains("Connection refused", ignoreCase = true)) {
+                    onConnectionError?.invoke()
+                }
             }
         }
         

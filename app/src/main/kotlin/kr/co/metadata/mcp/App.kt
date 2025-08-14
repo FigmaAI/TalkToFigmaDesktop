@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import kr.co.metadata.mcp.ui.ServerErrorDialog
 import kr.co.metadata.mcp.ui.TutorialDialog
 import kr.co.metadata.mcp.analytics.AnalyticsConfig
 import kr.co.metadata.mcp.analytics.GoogleAnalyticsService
@@ -805,6 +806,7 @@ fun main() {
         var showMcpConfigDialog by remember { mutableStateOf(false) }
         var showLogViewerDialog by remember { mutableStateOf(false) }
         var showTutorialDialog by remember { mutableStateOf(false) }
+        var showServerErrorDialog by remember { mutableStateOf(false) }
         val trayState = rememberTrayState()
         val scope = rememberCoroutineScope()
         
@@ -961,6 +963,7 @@ fun main() {
                     showTutorialDialog = true
                 })
                 
+
                 Separator()
                 
                 // Main Controls
@@ -1005,6 +1008,12 @@ fun main() {
                                     if (ensurePortAvailable(mcpPort)) {
                                         logger.info { "🚀 Creating MCP server..." }
                                         mcpServer = McpServer()
+                                        
+                                        // Set error callback for server connection errors
+                                        mcpServer?.setConnectionErrorCallback {
+                                            showServerErrorDialog = true
+                                        }
+                                        
                                         mcpServer?.start()
                                         mcpServerRunning = true
                                         logger.info { "✅ MCP server started successfully on http://localhost:$mcpPort/sse" }
@@ -1109,6 +1118,12 @@ fun main() {
                                         logger.info { "🚀 Creating MCP server..." }
                                         val startTime = System.currentTimeMillis()
                                         mcpServer = McpServer()
+                                        
+                                        // Set error callback for server connection errors
+                                        mcpServer?.setConnectionErrorCallback {
+                                            showServerErrorDialog = true
+                                        }
+                                        
                                         mcpServer?.start()
                                         val endTime = System.currentTimeMillis()
                                         val startupTime = endTime - startTime
@@ -1236,6 +1251,40 @@ fun main() {
         TutorialDialog(
             isVisible = showTutorialDialog,
             onDismiss = { showTutorialDialog = false },
+            analyticsService = analyticsService
+        )
+        
+        // Server Error Dialog
+        ServerErrorDialog(
+            isVisible = showServerErrorDialog,
+            onDismiss = { showServerErrorDialog = false },
+            onKillServers = {
+                scope.launch {
+                    try {
+                        logger.info { "User requested to kill all servers from error dialog" }
+                        if (killAllServers()) {
+                            // Reset server states
+                            websocketServerRunning = false
+                            mcpServerRunning = false
+                            webSocketServer = null
+                            mcpServer = null
+                            
+                            logger.info { "All servers killed from error dialog" }
+                        } else {
+                            logger.error { "Failed to kill all servers from error dialog" }
+                        }
+                        
+                        // Track analytics
+                        analyticsService?.sendUserAction(
+                            action = "kill_servers_from_dialog",
+                            category = "server_error",
+                            label = "Connection error recovery"
+                        )
+                    } catch (e: Exception) {
+                        logger.error(e) { "Error during server cleanup from dialog" }
+                    }
+                }
+            },
             analyticsService = analyticsService
         )
     }
