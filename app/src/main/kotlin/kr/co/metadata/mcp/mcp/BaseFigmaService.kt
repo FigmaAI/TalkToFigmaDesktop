@@ -12,6 +12,7 @@ import kr.co.metadata.mcp.server.AnnotationResult
 import kr.co.metadata.mcp.server.TextReplaceResult
 import kr.co.metadata.mcp.server.ScanResult
 import kr.co.metadata.mcp.server.OperationResult
+import kr.co.metadata.mcp.analytics.GoogleAnalyticsService
 
 /**
  * Base service class for all Figma MCP services
@@ -20,6 +21,11 @@ import kr.co.metadata.mcp.server.OperationResult
 abstract class BaseFigmaService {
     
     protected val logger = KotlinLogging.logger {}
+    
+    // Static reference to analytics service - will be injected from App
+    companion object {
+        var analyticsService: GoogleAnalyticsService? = null
+    }
 
     /**
      * Validate request parameters using our custom validation system
@@ -249,7 +255,7 @@ abstract class BaseFigmaService {
     }
     
     /**
-     * Execute a Figma command with proper error handling
+     * Execute a Figma command with proper error handling and analytics tracking
      */
     protected suspend fun executeFigmaCommand(
         command: String,
@@ -257,8 +263,19 @@ abstract class BaseFigmaService {
         figmaCommandSender: suspend (String, Map<String, Any>) -> Any,
         operation: String
     ): CallToolResult {
+        val startTime = System.currentTimeMillis()
+        
         return try {
             val result = figmaCommandSender(command, params)
+            val duration = System.currentTimeMillis() - startTime
+            
+            // Track successful tool call
+            analyticsService?.sendMcpToolCall(
+                toolName = command,
+                success = true,
+                duration = duration,
+                resultType = "success"
+            )
             
             // Handle different result types properly
             val responseText = when (result) {
@@ -284,6 +301,17 @@ abstract class BaseFigmaService {
             
             createSuccessResponse(responseText)
         } catch (e: Exception) {
+            val duration = System.currentTimeMillis() - startTime
+            
+            // Track failed tool call
+            analyticsService?.sendMcpToolCall(
+                toolName = command,
+                success = false,
+                duration = duration,
+                errorMessage = e.message ?: "Unknown error",
+                resultType = "execution_error"
+            )
+            
             createErrorResponse(operation, e)
         }
     }

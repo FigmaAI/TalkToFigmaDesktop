@@ -612,8 +612,20 @@ class McpServer {
                 required = listOf("channel")
             )
         ) { request ->
+            val startTime = System.currentTimeMillis()
             val channel = request.arguments["channel"]?.jsonPrimitive?.content
+            
             if (channel.isNullOrBlank()) {
+                val duration = System.currentTimeMillis() - startTime
+                // Track validation failure
+                kr.co.metadata.mcp.mcp.BaseFigmaService.analyticsService?.sendMcpToolCall(
+                    toolName = "join_channel",
+                    success = false,
+                    duration = duration,
+                    errorMessage = "Channel name is required",
+                    resultType = "validation_error"
+                )
+                
                 CallToolResult(
                     content = listOf(TextContent("Channel name is required"))
                 )
@@ -623,11 +635,32 @@ class McpServer {
                     runBlocking {
                         joinChannel(channel)
                     }
+                    
+                    val duration = System.currentTimeMillis() - startTime
+                    // Track successful tool call
+                    kr.co.metadata.mcp.mcp.BaseFigmaService.analyticsService?.sendMcpToolCall(
+                        toolName = "join_channel",
+                        success = true,
+                        duration = duration,
+                        resultType = "success"
+                    )
+                    
                     CallToolResult(
                         content = listOf(TextContent("Successfully joined channel: $channel"))
                     )
                 } catch (e: Exception) {
+                    val duration = System.currentTimeMillis() - startTime
                     logger.error { "Failed to join channel '$channel': ${e.message}" }
+                    
+                    // Track execution failure
+                    kr.co.metadata.mcp.mcp.BaseFigmaService.analyticsService?.sendMcpToolCall(
+                        toolName = "join_channel",
+                        success = false,
+                        duration = duration,
+                        errorMessage = e.message ?: "Unknown error",
+                        resultType = "execution_error"
+                    )
+                    
                     CallToolResult(
                         content = listOf(TextContent("Error joining channel '$channel': ${e.message}. Make sure Figma is open and WebSocket server is running."))
                     )

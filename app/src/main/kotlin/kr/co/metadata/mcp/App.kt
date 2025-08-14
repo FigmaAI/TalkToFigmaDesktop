@@ -491,13 +491,23 @@ fun LogViewerDialog(
                 }
             }
             
-            // Function to read log file
+            // Function to read log file (show only recent 100 lines)
             fun refreshLogs() {
                 try {
                     val logFile = java.io.File(System.getProperty("java.io.tmpdir"), "TalkToFigmaDesktop.log")
                     if (logFile.exists()) {
                         val fullContent = logFile.readText()
-                        logContent = filterLogsAfterClear(fullContent)
+                        val filteredContent = filterLogsAfterClear(fullContent)
+                        
+                        // Get only the last 100 lines for better performance and usability
+                        val lines = filteredContent.split("\n")
+                        val recentLines = if (lines.size > 100) {
+                            lines.takeLast(100)
+                        } else {
+                            lines
+                        }
+                        
+                        logContent = recentLines.joinToString("\n")
                     } else {
                         logContent = "Log file not found. Start the servers to generate logs."
                     }
@@ -649,6 +659,15 @@ fun LogViewerDialog(
                                 containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
                             )
                         ) {
+                            val scrollState = rememberScrollState()
+                            
+                            // Auto-scroll to bottom when content changes
+                            LaunchedEffect(logContent) {
+                                if (logContent.isNotBlank()) {
+                                    scrollState.animateScrollTo(scrollState.maxValue)
+                                }
+                            }
+                            
                             SelectionContainer {
                                 Text(
                                     text = logContent,
@@ -660,7 +679,7 @@ fun LogViewerDialog(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(12.dp)
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(scrollState)
                                 )
                             }
                         }
@@ -805,8 +824,11 @@ fun main() {
                     
                     analyticsService = GoogleAnalyticsService()
                     
-                    // Initialize basic crash handler
-                    crashHandler = CrashHandler()
+                    // Inject analytics service into BaseFigmaService for MCP tool tracking
+                    kr.co.metadata.mcp.mcp.BaseFigmaService.analyticsService = analyticsService
+                    
+                    // Initialize crash handler with analytics for GA4 app_exception reporting
+                    crashHandler = CrashHandler(analyticsService)
                     
                     // Set basic uncaught exception handler
                     Thread.setDefaultUncaughtExceptionHandler { thread, exception ->

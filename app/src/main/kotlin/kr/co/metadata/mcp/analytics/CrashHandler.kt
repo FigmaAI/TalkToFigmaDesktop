@@ -6,7 +6,7 @@ import mu.KotlinLogging
  * Simple crash handler - will be implemented later
  * For now, just basic logging
  */
-class CrashHandler {
+class CrashHandler(private val analytics: GoogleAnalyticsService? = null) {
     private val logger = KotlinLogging.logger {}
     
     init {
@@ -18,7 +18,20 @@ class CrashHandler {
      */
     fun handleException(thread: Thread, exception: Throwable) {
         logger.error(exception) { "Uncaught exception in thread ${thread.name}" }
-        // TODO: Send crash event to GA4 later
+        try {
+            val topFrame = exception.stackTrace.firstOrNull()?.let { f ->
+                "${f.className}.${f.methodName}(${f.fileName}:${f.lineNumber})"
+            }
+            analytics?.sendAppException(
+                fatal = true,
+                exceptionType = exception::class.java.simpleName,
+                exceptionMessage = exception.message,
+                threadName = thread.name,
+                stacktraceTop = topFrame
+            )
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to send app_exception event" }
+        }
     }
     
     /**
