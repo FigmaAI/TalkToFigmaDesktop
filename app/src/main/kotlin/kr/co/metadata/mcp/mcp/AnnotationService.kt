@@ -208,7 +208,7 @@ object AnnotationService : BaseFigmaService() {
                     
                     logger.info { "✅ Parsed ${annotationsList.size} annotations successfully" }
                     
-                    // Convert annotationsList to JSON string to ensure proper serialization
+                    // Build JsonArray so it is sent as a real array, not a string
                     val annotationsJsonArray = JsonArray(
                         annotationsList.map { annotation ->
                             buildJsonObject {
@@ -226,11 +226,11 @@ object AnnotationService : BaseFigmaService() {
                             }
                         }
                     )
-                    val annotationsJsonString = annotationsJsonArray.toString()
-                    
+
                     val params = mapOf(
                         "nodeId" to nodeId,
-                        "annotations" to annotationsJsonString // Send as JSON string that JavaScript can parse
+                        // Pass JsonArray directly so transport serializes it as an array
+                        "annotations" to annotationsJsonArray as JsonElement
                     )
                     
                     val result = figmaCommandSender("set_multiple_annotations", params)

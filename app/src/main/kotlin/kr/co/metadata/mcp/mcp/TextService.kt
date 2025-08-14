@@ -155,7 +155,7 @@ object TextService : BaseFigmaService() {
                     
                     logger.info { "✅ Parsed ${textReplacements.size} text replacements successfully" }
                     
-                    // Convert textReplacements to JSON string to ensure proper serialization
+                    // Build JsonArray of replacements so it is sent as a real array, not a string
                     val textJsonArray = JsonArray(
                         textReplacements.map { replacement ->
                             buildJsonObject {
@@ -164,16 +164,16 @@ object TextService : BaseFigmaService() {
                             }
                         }
                     )
-                    val textJsonString = textJsonArray.toString()
                     
                     val params = mapOf(
                         "nodeId" to nodeId,
-                        "text" to textJsonString // Send as JSON string that JavaScript can parse
+                        // Pass JsonArray directly so transport serializes it as an array
+                        "text" to textJsonArray as JsonElement
                     )
                     
                     // Debug: Log the actual data being sent to Figma
                     logger.info { "📤 Sending to Figma - nodeId: $nodeId" }
-                    logger.info { "📤 Sending to Figma - text as JSON string: $textJsonString" }
+                    logger.info { "📤 Sending to Figma - text JSON array: $textJsonArray" }
                     logger.info { "📤 Full params: $params" }
                     
                     val result = figmaCommandSender("set_multiple_text_contents", params)
