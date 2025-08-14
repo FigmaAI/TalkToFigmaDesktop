@@ -126,17 +126,27 @@ compose.desktop {
                     configurationFiles.from(project.file("proguard-rules.pro"))
                 }
                 
-                // Optimized JVM arguments
-                jvmArgs(
-                    "-Dapple.awt.enableTemplateImages=true",
-                    "-Dcom.apple.mrj.application.apple.menu.about.name=Cursor Talk to Figma Desktop",
-                    "-Dapple.awt.application.name=Cursor Talk to Figma Desktop",
-                    "-Xdock:name=Cursor Talk to Figma Desktop",
-                    "-Xms64m",
-                    "-Xmx512m",
-                    "-XX:+UseG1GC",
-                    "-XX:+UseStringDeduplication"
-                )
+                // Platform-specific JVM arguments
+                if (System.getProperty("os.name").lowercase().contains("mac")) {
+                    jvmArgs(
+                        "-Dapple.awt.enableTemplateImages=true",
+                        "-Dcom.apple.mrj.application.apple.menu.about.name=Cursor Talk to Figma Desktop",
+                        "-Dapple.awt.application.name=Cursor Talk to Figma Desktop",
+                        "-Xdock:name=Cursor Talk to Figma Desktop",
+                        "-Xms64m",
+                        "-Xmx512m",
+                        "-XX:+UseG1GC",
+                        "-XX:+UseStringDeduplication"
+                    )
+                } else {
+                    // Cross-platform JVM arguments
+                    jvmArgs(
+                        "-Xms64m",
+                        "-Xmx512m",
+                        "-XX:+UseG1GC",
+                        "-XX:+UseStringDeduplication"
+                    )
+                }
 
                 // Add required Info.plist key for export compliance
                 infoPlist {
@@ -183,12 +193,23 @@ compose.desktop {
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 // Console app (set to false to hide console window)
                 console = false
+                
+                // Windows-specific JVM arguments
+                jvmArgs(
+                    "-Xms64m",
+                    "-Xmx512m",
+                    "-XX:+UseG1GC",
+                    "-XX:+UseStringDeduplication"
+                )
             }
             
             // Linux is not supported
         }
     }
 }
+
+// Override run task to use platform-specific JVM args - disabled for now
+// Will be handled in compose.desktop configuration blocks instead
 
 tasks.register("printVersion") {
     // Store version during configuration phase
