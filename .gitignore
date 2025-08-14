@@ -109,3 +109,4 @@ replay_pid*
 *.provisionprofile
 *.mobileprovision
 *.developerprofile
+scripts/setup-env.ps1
