@@ -53,13 +53,26 @@
 
 1. Go to [Releases](https://github.com/FigmaAI/TalkToFigmaDesktop/releases)
 2. Download the appropriate version for your platform:
-   - **macOS**: `Cursor Talk to Figma desktop-macOS.dmg`
-   - **Windows**: `Cursor Talk to Figma desktop-Windows.msi`
+   - **macOS Apple Silicon**: `TalkToFigma-v*.*.* -arm64.dmg`
+   - **macOS Intel**: `TalkToFigma-v*.*.* -intel.dmg`
+   - **Windows**: `TalkToFigma-v*.*.*.msi` or `.exe`
+
+### ⚠️ Security Warning (First Run)
+
+Since this is an open source community build (unsigned), your system will show security warnings:
+
+**macOS:**
+1. **"Cannot be opened"** dialog will appear
+2. Go to **System Preferences** → **Security & Privacy** → **General**
+3. Click **"Open Anyway"** next to the blocked app message
+4. Or right-click the app → **"Open"** → **"Open"** in the confirmation dialog
+
+**Windows:**
+1. **SmartScreen** warning: *"Windows protected your PC"*
+2. Click **"More info"** → **"Run anyway"**
+3. This is normal for applications not yet recognized by Microsoft's reputation system
 
 
-
-> [!TIP]
-> **Windows SmartScreen**: If Windows Defender shows a SmartScreen warning, click "More info" → "Run anyway" to proceed. This is normal for new applications not yet widely recognized by Microsoft's reputation system.
 
 ## Getting Started
 
@@ -133,9 +146,10 @@ Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.f
 2. Wait a few seconds, then → **"Start All Services"**
 3. If still not working → **"View Logs"** to see what's happening
 
-**🛡️ Installation Issues** 
-- **macOS**: No security warnings expected (app is code-signed)
-- **Windows**: If SmartScreen appears, click **"More info"** → **"Run anyway"**
+**🛡️ Installation & Security Issues** 
+- **macOS**: If "Cannot be opened" appears → System Preferences → Security & Privacy → "Open Anyway"
+- **Windows**: If SmartScreen warning appears → "More info" → "Run anyway"
+- **Why warnings occur**: Community builds are unsigned (no code signing certificate) but are safe to use
 
 **🔧 Server Won't Start**
 1. Right-click tray icon → **"Kill All Servers"** 
@@ -175,22 +189,25 @@ Access detailed logs via:
    cp .envrc.template .envrc
    ```
 
-3. **Configure variables**
+3. **Configure Java environment**
    
-   Edit `.envrc` file with your values:
+   The `.envrc` file automatically sets up the correct Java version:
    ```bash
-   # Optional: Apple code signing and notarization (for App Store distribution)
-   export APPLE_ID="your-apple-id@email.com"
-   export APPLE_PASSWORD="your-app-specific-password"
-   export APPLE_TEAM_ID="YOUR_TEAM_ID"
+   # Java Development Kit
+   # Amazon Corretto JDK 21 setup with automatic detection
+   if [ -d "/Library/Java/JavaVirtualMachines/amazon-corretto-21.jdk/Contents/Home" ]; then
+       export JAVA_HOME="/Library/Java/JavaVirtualMachines/amazon-corretto-21.jdk/Contents/Home"
+       export PATH="$JAVA_HOME/bin:$PATH"
+       echo "✅ Amazon Corretto JDK 21 loaded"
+   fi
    
-   # Optional: Analytics
-   export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
-   export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
+   # Optional: Google Analytics (uncomment to enable)
+   # export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
+   # export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
    ```
 
    > [!NOTE]
-   > **Without code signing**: The app will build successfully but show security warnings when distributed
+   > **Java Version**: This project requires JDK 21. The `.envrc` file automatically detects Amazon Corretto JDK 21 and sets up the environment. If you don't have JDK 21 installed, install it with: `brew install --cask amazon-corretto`
 
 4. **Allow direnv**
    ```bash
@@ -212,12 +229,16 @@ cd TalkToFigmaDesktop
 # Run during development
 ./gradlew :app:run
 
-# Create platform distributables
-./gradlew :app:packageDistributionForCurrentOS
+# Create unsigned distributables
+./gradlew packageDmg -PsigningEnabled=false        # macOS (ARM64 by default)
+./gradlew packageMsi packageExe                     # Windows
+
+# Create Intel macOS build
+./gradlew packageDmg -PsigningEnabled=false -Dcompose.desktop.mac.archs=x86_64
 ```
 
 > [!NOTE]
-> **Release Builds**: Tagged releases (e.g., `v1.0.0`) trigger automatic builds via GitHub Actions, creating signed distributables for macOS and Windows. See `.github/workflows/build.yml` for details.
+> **Release Builds**: Tagged releases (e.g., `v1.0.0`) trigger automatic builds via GitHub Actions, creating unsigned distributables for both ARM64 and Intel macOS, plus Windows packages. See `.github/workflows/build.yml` for details.
 
 
 

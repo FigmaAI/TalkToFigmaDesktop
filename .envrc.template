@@ -1,33 +1,27 @@
-# TalkToFigma Desktop - Environment Variables Template
-# Copy this file to .envrc and fill in your own values
-
-# Apple Developer Certificates and Signing (Optional - for App Store distribution)
-# Comment out if you don't need code signing for local development
-export SIGNING_IDENTITY_APPSTORE="Apple Distribution: YOUR_NAME (YOUR_TEAM_ID)"
-export INSTALLER_IDENTITY="3rd Party Mac Developer Installer: YOUR_NAME (YOUR_TEAM_ID)"
-
-# Apple Developer Account (Optional - for App Store distribution)  
-# Comment out if you don't need code signing for local development
-export APPLE_ID="your-apple-id@email.com"
-export APPLE_PASSWORD="your-app-specific-password"
-export APPLE_TEAM_ID="YOUR_TEAM_ID"
+# TalkToFigmaDesktop Desktop - Community Version Environment Variables
+# This is the community/open source version without code signing
 
 # Java Development Kit
 # Make sure JDK 21 is installed (Amazon Corretto recommended)
-# Amazon Corretto: https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/downloads-list.html
 export JAVA_HOME="/Library/Java/JavaVirtualMachines/amazon-corretto-21.jdk/Contents/Home"
 export PATH="$JAVA_HOME/bin:$PATH"
 
-# Google Analytics (Optional - for analytics and crash reporting)
-export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
-export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
+# Gradle settings
+export GRADLE_OPTS="-Dorg.gradle.daemon=false"
+
+# Google Analytics (Optional - for analytics and crash reporting)  
+# Uncomment these lines to enable analytics (completely optional)
+# export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
+# export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
 
 # Instructions:
 # 1. Copy this file: cp .envrc.template .envrc
-# 2. Install JDK 21 if not already installed
-# 3. Fill in Apple Developer details (optional - only for App Store distribution)
-# 4. Fill in optional analytics credentials if needed
-# 5. Run: direnv allow
+# 2. Install JDK 21: brew install --cask amazon-corretto
+# 3. Run: direnv allow
 #
-# Note: For local development without code signing, you can comment out
-# all Apple-related environment variables and use: ./gradlew build -PskipSigning=true 
+# Build commands:
+# - Local development: ./gradlew build
+# - Community release (unsigned): ./gradlew packageDmg -PsigningEnabled=false
+#
+# Note: This version does NOT require Apple Developer certificates
+# The resulting binaries will be unsigned but fully functional

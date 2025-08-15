@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build Community Release
 
 on:
   push:
@@ -15,7 +15,6 @@ env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
 jobs:
-  # Run tests on GitHub-hosted macOS runners
   test:
     runs-on: macos-latest
     
@@ -29,30 +28,18 @@ jobs:
         java-version: '21'
         distribution: 'corretto'
         
-    - name: Display JDK information
-      run: |
-        echo "==== JDK Information ===="
-        java -version
-        echo "JDK path: $JAVA_HOME"
-        echo "========================="
-        
     - name: Set version from tag
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update project version in build.gradle.kts
         sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-
-          
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
     - name: Run tests
-      run: |
-        echo "Running tests with $(java -version 2>&1 | head -1)"
-        ./gradlew test --no-daemon
+      run: ./gradlew test --no-daemon
 
   package-mac:
     runs-on: macos-latest
@@ -69,127 +56,47 @@ jobs:
         java-version: '21'
         distribution: 'corretto'
         
-    - name: Display macOS JDK information
-      run: |
-        echo "==== macOS JDK Information ===="
-        java -version
-        echo "JDK path: $JAVA_HOME"
-        echo "==========================="
-        
     - name: Set version from tag
-      if: startsWith(github.ref, 'refs/tags/v')
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update project version in build.gradle.kts
         sed -i '' "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-
-          
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Import signing certificate and set up environment
-      if: startsWith(github.ref, 'refs/tags/v')
-      env:
-        SIGNING_CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
-        SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+    - name: Build unsigned Mac packages (ARM64 and Intel)
       run: |
-        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-        security create-keychain -p "$SIGNING_CERTIFICATE_PASSWORD" $KEYCHAIN_PATH
-        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-        security unlock-keychain -p "$SIGNING_CERTIFICATE_PASSWORD" $KEYCHAIN_PATH
+        echo "Building unsigned community version for ARM64..."
+        ./gradlew packageDmg -PsigningEnabled=false -Dcompose.desktop.mac.archs=arm64 --no-daemon
         
-        echo $SIGNING_CERTIFICATE_BASE64 | base64 --decode -o $RUNNER_TEMP/certificate.p12
-        security import $RUNNER_TEMP/certificate.p12 -k $KEYCHAIN_PATH -P "$SIGNING_CERTIFICATE_PASSWORD" -A
-        
-        security list-keychains -d user -s $KEYCHAIN_PATH
-        
-        echo "APPLE_ID=${APPLE_ID}" >> $GITHUB_ENV
-        echo "APPLE_PASSWORD=${APPLE_PASSWORD}" >> $GITHUB_ENV
-        echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> $GITHUB_ENV
-        echo "SIGNING_IDENTITY=${SIGNING_IDENTITY}" >> $GITHUB_ENV
+        echo "Building unsigned community version for Intel x64..."
+        ./gradlew packageDmg -PsigningEnabled=false -Dcompose.desktop.mac.archs=x86_64 --no-daemon -x clean
       
-    - name: Build and notarize Mac packages (ARM64 and Intel)
-      if: startsWith(github.ref, 'refs/tags/v')
+    - name: Rename DMG files
       run: |
-        # Make scripts executable
-        chmod +x scripts/notarize.sh scripts/build-intel-mac.sh
-        
-        echo "Step 1: Building and notarizing Apple Silicon (ARM64) version"
-        ./scripts/notarize.sh --clean
-        
-        echo "Step 2: Building and notarizing Intel Mac version"
-        # The script detects and preserves the existing ARM64 build
-        ./scripts/build-intel-mac.sh
-        
-        echo "✅ Both ARM64 and Intel Mac builds completed and notarized"
-      
-    - name: Clean up keychain
-      if: always() && startsWith(github.ref, 'refs/tags/v')
-      run: |
-        security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
-      
-    - name: Rename and prepare DMG files
-      run: |
-        # 1. Rename Apple Silicon DMG file
         cd app/build/compose/binaries/main/dmg/
-        original_file=$(find . -name "*.dmg" -type f | head -n 1)
-        if [ -n "$original_file" ]; then
-          version=${GITHUB_REF#refs/tags/}
-          # Keep original name format but add arm64 suffix if not already present
-          if [[ "$original_file" != *"-arm64.dmg"* ]]; then
-            arm64_name="${original_file%.dmg}-arm64.dmg"
-            mv "$original_file" "$arm64_name"
-            echo "Renamed ARM64 DMG to: $arm64_name"
-            ls -la
-          else
-            echo "ARM64 DMG already has correct suffix: $original_file"
-          fi
-        else
-          echo "No ARM64 DMG file found!"
-          ls -la
-        fi
+        version=${GITHUB_REF#refs/tags/}
         
-        # 2. Rename Intel DMG file
-        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-          cd ../../intel/dmg/
-          intel_file=$(find . -name "*-intel.dmg" -type f | head -n 1)
-          if [ -n "$intel_file" ]; then
-            # Keep the original format but ensure it has -intel suffix
-            if [[ "$intel_file" == *"-intel.dmg" ]]; then
-              echo "Intel DMG already has correct format: $intel_file"
-              ls -la
+        # Find and rename DMG files
+        for dmg_file in *.dmg; do
+          if [ -f "$dmg_file" ]; then
+            # Check if it's Intel or ARM64 based on file content or naming
+            if file "$dmg_file" | grep -q "x86_64" || hdiutil imageinfo "$dmg_file" | grep -q "x86_64"; then
+              new_name="TalkToFigma-${version}-intel.dmg"
             else
-              # This should not happen with our new scripts, but just in case
-              intel_name="${intel_file%.dmg}-intel.dmg"
-              mv "$intel_file" "$intel_name"
-              echo "Renamed Intel DMG to: $intel_name"
-              ls -la
+              new_name="TalkToFigma-${version}-arm64.dmg"
             fi
-          else
-            echo "No Intel DMG file found!"
-            ls -la
+            mv "$dmg_file" "$new_name"
+            echo "Renamed $dmg_file to: $new_name"
           fi
-        fi
+        done
       
-    - name: Upload macOS ARM64 artifacts
+    - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: macos-arm64-dmg
-        path: app/build/compose/binaries/main/dmg/*-arm64.dmg
-        retention-days: 30
-        
-    - name: Upload macOS Intel artifacts
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-intel-dmg
-        path: app/build/compose/binaries/intel/dmg/*-intel.dmg
+        name: macos-dmg-files
+        path: app/build/compose/binaries/main/dmg/*.dmg
         retention-days: 30
 
   package-windows:
@@ -206,39 +113,23 @@ jobs:
       with:
         distribution: 'corretto'
         java-version: '21'
-        cache: 'gradle'
-        
-    - name: Display Windows JDK information
-      shell: bash
-      run: |
-        echo "==== Windows JDK Information ===="
-        java -version
-        echo "JDK path: $JAVA_HOME"
-        echo "==============================="
         
     - name: Set version from tag
-      if: startsWith(github.ref, 'refs/tags/v')
       shell: bash
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "Building version: $TAG_VERSION"
-        # Update project version in build.gradle.kts
         sed -i "s/^version = \".*\"/version = \"$TAG_VERSION\"/" app/build.gradle.kts
         
-
-          
-    - name: Build MSI package
-      run: ./gradlew packageMsi --no-daemon
+    - name: Build Windows packages
+      run: |
+        ./gradlew packageMsi packageExe --no-daemon
       
-    - name: Build EXE package
-      run: ./gradlew packageExe --no-daemon
-      
-    - name: Rename Windows packages with version
+    - name: Rename Windows packages
       shell: bash
       run: |
         version=${GITHUB_REF#refs/tags/}
         
-        # Change MSI file name
         cd app/build/compose/binaries/main/msi/
         msi_file=$(find . -name "*.msi" -type f | head -n 1)
         if [ -n "$msi_file" ]; then
@@ -247,7 +138,6 @@ jobs:
           echo "Renamed MSI to: $new_msi"
         fi
         
-        # Change EXE file name
         cd ../exe/
         exe_file=$(find . -name "*.exe" -type f | head -n 1)
         if [ -n "$exe_file" ]; then
@@ -265,16 +155,12 @@ jobs:
           app/build/compose/binaries/main/exe/
         retention-days: 30
 
-  # sign-and-release-mac job is now integrated into package-mac
-  # The old job has been removed to avoid confusion.
-
   create-release:
     runs-on: ubuntu-latest
     needs: [test, package-mac, package-windows]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
-      actions: read
     
     steps:
     - name: Checkout code
@@ -289,8 +175,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          artifacts/macos-arm64-dmg/*-arm64.dmg
-          artifacts/macos-intel-dmg/*-intel.dmg
+          artifacts/macos-dmg-files/*.dmg
           artifacts/windows-packages/**/*.msi
           artifacts/windows-packages/**/*.exe
         draft: false
@@ -302,17 +187,19 @@ jobs:
           ## TalkToFigma Desktop Release
           
           ### 📦 Download
-          - **macOS Apple Silicon**: `*-arm64.dmg` (Apple Silicon)
-          - **macOS Intel**: `*-intel.dmg` (Intel-based Macs)
+          - **macOS Apple Silicon**: `TalkToFigma-${{ github.ref_name }}-arm64.dmg`
+          - **macOS Intel**: `TalkToFigma-${{ github.ref_name }}-intel.dmg`
           - **Windows**: `TalkToFigma-${{ github.ref_name }}.msi` or `TalkToFigma-${{ github.ref_name }}.exe`
           
-          All builds are optimized with Skiko for high-quality animations and macOS builds are signed and notarized for maximum security.
-          
-          ### 🚀 How to install
+          ### 🚀 Installation Notes
           **macOS**: 
-          1. Double-click the DMG file to mount
-          2. Drag and drop the TalkToFigma Desktop app to the Applications folder
+          Since this version is unsigned, you may need to:
+          1. Right-click the app and select "Open"
+          2. Or go to System Preferences > Security & Privacy and click "Open Anyway"
           
           **Windows**: 
-          - **MSI**: Recommended method, official installation on the system
-          - **EXE**: Portable executable file" 
+          No special installation steps required.
+          
+          ### 🎯 Architecture Support
+          - **ARM64 DMG**: Optimized for Apple Silicon Macs (M1, M2, M3)
+          - **Intel DMG**: Compatible with Intel-based Macs and Apple Silicon via Rosetta
