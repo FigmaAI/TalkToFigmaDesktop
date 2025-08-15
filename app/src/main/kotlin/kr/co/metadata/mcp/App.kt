@@ -50,6 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import kr.co.metadata.mcp.ui.ServerErrorDialog
 import kr.co.metadata.mcp.ui.TutorialDialog
+import kr.co.metadata.mcp.ui.OpenSourceDialog
 import kr.co.metadata.mcp.analytics.AnalyticsConfig
 import kr.co.metadata.mcp.analytics.GoogleAnalyticsService
 import kr.co.metadata.mcp.analytics.CrashHandler
@@ -807,6 +808,7 @@ fun main() {
         var showLogViewerDialog by remember { mutableStateOf(false) }
         var showTutorialDialog by remember { mutableStateOf(false) }
         var showServerErrorDialog by remember { mutableStateOf(false) }
+        var showOpenSourceDialog by remember { mutableStateOf(false) }
         val trayState = rememberTrayState()
         val scope = rememberCoroutineScope()
         
@@ -916,7 +918,7 @@ fun main() {
                     logger.debug { "Tray menu opened" }
                 }
                 
-                // Status
+                // ═══ SERVER STATUS ═══
                 val wsStatus = if (websocketServerRunning) "Running" else "Stopped"
                 val mcpStatus = if (mcpServerRunning) "Running" else "Stopped"
                 Item("WebSocket Server: $wsStatus", enabled = false, onClick = { })
@@ -924,6 +926,7 @@ fun main() {
                 
                 Separator()
                 
+                // ═══ TOOLS & SETTINGS ═══
                 // MCP Configuration
                 Item("MCP Configuration", onClick = {
                     scope.launch {
@@ -963,9 +966,9 @@ fun main() {
                     showTutorialDialog = true
                 })
                 
-
                 Separator()
                 
+                // ═══ CONTROLS ═══
                 // Main Controls
                 val allRunning = websocketServerRunning && mcpServerRunning
                 val allStopped = !websocketServerRunning && !mcpServerRunning
@@ -1171,8 +1174,6 @@ fun main() {
                     }
                 }
                 
-                Separator()
-                
                 // Emergency action
                 Item("Kill All Servers", onClick = {
                     scope.launch {
@@ -1201,7 +1202,24 @@ fun main() {
                 })
                 
                 Separator()
+
+                // ═══ ABOUT ═══
+                // Open Source Licenses
+                Item("Licenses", onClick = {
+                    scope.launch {
+                        analyticsService?.sendPageView(
+                            pageTitle = "Open Source Licenses",
+                            pageLocation = "https://mcp.metadata.co.kr/licenses",
+                            pagePath = "/licenses"
+                        )
+                        logger.debug { "Open Source Licenses opened" }
+                    }
+                    showOpenSourceDialog = true
+                })
+
+                Separator()
                 
+                // ═══ EXIT ═══
                 Item("Exit", onClick = {
                     scope.launch {
                         val logLabel = "App exit requested"
@@ -1251,6 +1269,13 @@ fun main() {
         TutorialDialog(
             isVisible = showTutorialDialog,
             onDismiss = { showTutorialDialog = false },
+            analyticsService = analyticsService
+        )
+        
+        // Open Source Licenses Dialog
+        OpenSourceDialog(
+            isVisible = showOpenSourceDialog,
+            onDismiss = { showOpenSourceDialog = false },
             analyticsService = analyticsService
         )
         

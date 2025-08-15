@@ -213,6 +213,19 @@ The app includes Google Analytics integration for crash reporting and usage anal
 - System information (OS, memory, etc.)
 - User actions (optional)
 
+## Open Source Licenses
+
+This application is built using various open source libraries. The key dependencies are:
+
+- **Kotlin & Jetpack Compose**: Modern UI toolkit (Apache 2.0)
+- **MCP Kotlin SDK**: Model Context Protocol implementation (MIT)
+- **OkHttp**: HTTP client library (Apache 2.0)
+- **Jackson**: JSON processing (Apache 2.0)
+- **Logback**: Logging framework (EPL 1.0, LGPL 2.1)
+
+> [!NOTE]
+> **License Compliance**: All third-party libraries used in this project comply with their respective open source licenses. The complete list with versions and license details is available through the application's Open Source Licenses dialog.
+
 ## Building from Source
 
 ### Prerequisites
