@@ -107,8 +107,8 @@ compose.desktop {
             packageName = "Cursor Talk to Figma Desktop"
             packageVersion = project.version.toString()
             
-            // Include JRE for self-contained application
-            includeAllModules = true
+            // Include only necessary JVM modules (excludes JavaFX WebKit)
+            modules("java.base", "java.desktop", "java.logging", "java.net.http", "java.security.jgss", "java.sql", "jdk.crypto.ec", "jdk.zipfs")
 
             macOS {
                 bundleID = "kr.co.metadata.mcp.talktofigma"
