@@ -56,22 +56,7 @@
    - **macOS**: `Cursor Talk to Figma desktop-macOS.dmg`
    - **Windows**: `Cursor Talk to Figma desktop-Windows.msi`
 
-### macOS Installation
 
-1. **Download and Install**
-   - Open the downloaded DMG file
-   - Drag "Cursor Talk to Figma desktop" to your Applications folder
-   - Launch the application - it will start immediately without security warnings
-
-> [!NOTE]
-> **Enhanced Security**: This application is now code-signed and notarized by Apple, ensuring secure installation and execution without security warnings on macOS.
-
-### Windows Installation
-
-1. **Download and Install**
-   - Run the downloaded MSI installer
-   - Follow the installation wizard
-   - Launch from Start menu or desktop shortcut
 
 > [!TIP]
 > **Windows SmartScreen**: If Windows Defender shows a SmartScreen warning, click "More info" → "Run anyway" to proceed. This is normal for new applications not yet widely recognized by Microsoft's reputation system.
@@ -142,29 +127,20 @@ Install the official plugin: [**Cursor Talk to Figma MCP Plugin**](https://www.f
 > [!NOTE]
 > **Quick Diagnosis**: Most issues can be resolved by checking the application logs. Right-click the tray icon → "View Logs" to see detailed error information.
 
-### Common Issues
 
 **🔌 Connection Problems**
-- Ensure both servers are running 
-- Check that ports 3055 and 3056 are not blocked by firewall
-- Try "Kill All Servers" from tray menu and restart
-
-> [!TIP]
-> **Firewall Issues**: If your firewall is blocking connections, add exceptions for ports 3055 and 3056, or temporarily disable the firewall to test connectivity.
+1. Right-click the tray icon → **"Kill All Servers"**
+2. Wait a few seconds, then → **"Start All Services"**
+3. If still not working → **"View Logs"** to see what's happening
 
 **🛡️ Installation Issues** 
-- macOS: Application is code-signed and notarized - no security warnings expected
-- Windows: If Windows Defender shows a SmartScreen warning, click "More info" → "Run anyway"
+- **macOS**: No security warnings expected (app is code-signed)
+- **Windows**: If SmartScreen appears, click **"More info"** → **"Run anyway"**
 
-**🔧 Port Conflicts**
-- The app automatically handles port conflicts with enhanced retry logic
-- If issues persist, manually kill processes using ports 3055/3056
-- Check logs via "View Logs" in the tray menu
-
-> [!WARNING]
-> **Force Kill Ports**: If automatic port management fails, you can manually kill processes using these commands:
-> - **macOS/Linux**: `lsof -ti:3055 | xargs kill -9` and `lsof -ti:3056 | xargs kill -9`
-> - **Windows**: `netstat -ano | findstr :3055` then `taskkill /PID <PID> /F`
+**🔧 Server Won't Start**
+1. Right-click tray icon → **"Kill All Servers"** 
+2. Try → **"Start All Services"** again
+3. Still having issues? → **"View Logs"** for details
 
 ### Logs and Debugging
 
@@ -173,59 +149,6 @@ Access detailed logs via:
 2. Use **Clear** to reset log view to current session
 3. Use **Copy** to share logs for troubleshooting
 
-## Google Analytics Setup
-
-### Configuration
-
-The app includes Google Analytics integration for crash reporting and usage analytics. To enable this feature:
-
-1. **Create a Google Analytics 4 Property**
-   - Go to [Google Analytics](https://analytics.google.com/)
-   - Create a new GA4 property
-   - Note your Measurement ID (format: `G-XXXXXXXXXX`)
-
-2. **Configure Analytics**
-   - Set environment variables in your `.envrc` file:
-     ```bash
-     export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
-     export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
-     ```
-   - Or set them in your system environment
-   - The app will automatically load these values from environment variables
-
-3. **Enable Features**
-   - Set `analytics.crash.reporting.enabled=true` for crash reporting
-   - Set `analytics.user.tracking.enabled=true` for user action tracking
-   - Set `analytics.debug.mode=false` for production
-
-### Privacy
-
-- Analytics data is sent to Google Analytics servers
-- No personally identifiable information is collected by default
-- Users can opt out by setting `analytics.user.id=` (empty)
-- Crash reports include system information for debugging
-
-### Data Collected
-
-- App start/stop events
-- Server start/stop events
-- Crash reports with stack traces
-- System information (OS, memory, etc.)
-- User actions (optional)
-
-## Open Source Licenses
-
-This application is built using various open source libraries. The key dependencies are:
-
-- **Kotlin & Jetpack Compose**: Modern UI toolkit (Apache 2.0)
-- **MCP Kotlin SDK**: Model Context Protocol implementation (MIT)
-- **OkHttp**: HTTP client library (Apache 2.0)
-- **Jackson**: JSON processing (Apache 2.0)
-- **Logback**: Logging framework (EPL 1.0, LGPL 2.1)
-
-> [!NOTE]
-> **License Compliance**: All third-party libraries used in this project comply with their respective open source licenses. The complete list with versions and license details is available through the application's Open Source Licenses dialog.
-
 ## Building from Source
 
 ### Prerequisites
@@ -233,9 +156,48 @@ This application is built using various open source libraries. The key dependenc
 - JDK 21+
 - Kotlin 2.0.0+
 - Gradle 8.12+
+- direnv (for environment variable management)
 
-> [!TIP]
-> **Development Setup**: For the best development experience, use IntelliJ IDEA with the Kotlin plugin. The project is configured with Compose Desktop and includes hot-reload capabilities for UI development.
+### Environment Setup
+
+1. **Install direnv**
+   ```bash
+   # macOS
+   brew install direnv
+   
+   # Setup shell integration (add to your shell config)
+   echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc  # for zsh
+   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc  # for bash
+   ```
+
+2. **Create environment file**
+   ```bash
+   cp .envrc.template .envrc
+   ```
+
+3. **Configure variables**
+   
+   Edit `.envrc` file with your values:
+   ```bash
+   # Optional: Apple code signing and notarization (for App Store distribution)
+   export APPLE_ID="your-apple-id@email.com"
+   export APPLE_PASSWORD="your-app-specific-password"
+   export APPLE_TEAM_ID="YOUR_TEAM_ID"
+   
+   # Optional: Analytics
+   export GOOGLE_ANALYTICS_ID="G-XXXXXXXXXX"
+   export GOOGLE_ANALYTICS_API_SECRET="your_api_secret_here"
+   ```
+
+   > [!NOTE]
+   > **Without code signing**: The app will build successfully but show security warnings when distributed
+
+4. **Allow direnv**
+   ```bash
+   direnv allow
+   ```
+
+
 
 ### Build Commands
 
@@ -256,6 +218,7 @@ cd TalkToFigmaDesktop
 
 > [!NOTE]
 > **Release Builds**: Tagged releases (e.g., `v1.0.0`) trigger automatic builds via GitHub Actions, creating signed distributables for macOS and Windows. See `.github/workflows/build.yml` for details.
+
 
 
 ## Original Project
@@ -296,6 +259,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 [Report Issues](https://github.com/FigmaAI/TalkToFigmaDesktop/issues)
 - 💡 [Request Features](https://github.com/FigmaAI/TalkToFigmaDesktop/issues/new?template=feature_request.md)
 - 💬 [Discussions](https://github.com/FigmaAI/TalkToFigmaDesktop/discussions)
+
+---
+
+## Open Source Licenses
+
+This application is built using various open source libraries. The key dependencies are:
+
+- **Kotlin & Jetpack Compose**: Modern UI toolkit (Apache 2.0)
+- **MCP Kotlin SDK**: Model Context Protocol implementation (MIT)
+- **OkHttp**: HTTP client library (Apache 2.0)
+- **Jackson**: JSON processing (Apache 2.0)
+- **Logback**: Logging framework (EPL 1.0, LGPL 2.1)
+
+> [!NOTE]
+> **License Compliance**: All third-party libraries used in this project comply with their respective open source licenses. The complete list with versions and license details is available through the application's Open Source Licenses dialog.
 
 ---
 
