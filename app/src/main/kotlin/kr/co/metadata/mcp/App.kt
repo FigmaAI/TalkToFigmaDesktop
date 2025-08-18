@@ -76,11 +76,14 @@ fun isPortAvailable(port: Int): Boolean {
 
 /**
  * Kill process using the specified port with enhanced reliability
+ * Excludes the current process to prevent self-termination
  */
 fun killProcessUsingPort(port: Int): Boolean {
     return try {
         logger.info { "🔍 Searching for processes using port $port..." }
         val os = System.getProperty("os.name").lowercase()
+        val currentPid = ProcessHandle.current().pid().toString()
+        logger.info { "🛡️  Current process PID: $currentPid (will be excluded from killing)" }
         var processesKilled = false
         
         if (os.contains("win")) {
@@ -103,6 +106,10 @@ fun killProcessUsingPort(port: Int): Boolean {
                 }
                 
                 for (pid in pids) {
+                    if (pid == currentPid) {
+                        logger.info { "🛡️  Skipping current process $pid to prevent self-termination" }
+                        continue
+                    }
                     logger.info { "💀 Killing Windows process $pid using port $port" }
                     val killCmd = "taskkill /PID $pid /F"
                     val killProcess = ProcessBuilder("cmd", "/c", killCmd).start()
@@ -127,6 +134,10 @@ fun killProcessUsingPort(port: Int): Boolean {
                 val pids = output.split("\n").filter { it.isNotEmpty() }
                 
                 for (pid in pids) {
+                    if (pid == currentPid) {
+                        logger.info { "🛡️  Skipping current process $pid to prevent self-termination" }
+                        continue
+                    }
                     logger.info { "💀 Killing Unix process $pid using port $port" }
                     val killProcess = ProcessBuilder("kill", "-9", pid).start()
                     if (killProcess.waitFor() == 0) {
@@ -1284,30 +1295,51 @@ fun main() {
             isVisible = showServerErrorDialog,
             onDismiss = { showServerErrorDialog = false },
             onKillServers = {
-                scope.launch {
+                try {
+                    logger.info { "Starting graceful server shutdown from error dialog" }
+                    
+                    // Step 1: Try graceful shutdown first
                     try {
-                        logger.info { "User requested to kill all servers from error dialog" }
-                        if (killAllServers()) {
-                            // Reset server states
-                            websocketServerRunning = false
-                            mcpServerRunning = false
-                            webSocketServer = null
-                            mcpServer = null
-                            
-                            logger.info { "All servers killed from error dialog" }
-                        } else {
-                            logger.error { "Failed to kill all servers from error dialog" }
-                        }
-                        
-                        // Track analytics
-                        analyticsService?.sendUserAction(
-                            action = "kill_servers_from_dialog",
-                            category = "server_error",
-                            label = "Connection error recovery"
-                        )
+                        mcpServer?.stop()
+                        mcpServerRunning = false
+                        logger.info { "MCP server stopped gracefully" }
                     } catch (e: Exception) {
-                        logger.error(e) { "Error during server cleanup from dialog" }
+                        logger.warn(e) { "Failed to stop MCP server gracefully" }
                     }
+                    
+                    try {
+                        webSocketServer?.stop()
+                        websocketServerRunning = false
+                        logger.info { "WebSocket server stopped gracefully" }
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to stop WebSocket server gracefully" }
+                    }
+                    
+                    // Reset server instances
+                    webSocketServer = null
+                    mcpServer = null
+                    
+                    // Give some time for graceful shutdown
+                    kotlinx.coroutines.delay(1000)
+                    
+                    // Step 2: Force kill if still running
+                    logger.info { "Performing force kill of remaining processes" }
+                    if (killAllServers()) {
+                        logger.info { "All servers cleaned up successfully from error dialog" }
+                    } else {
+                        logger.warn { "Some processes may still be running after cleanup" }
+                    }
+                    
+                    // Track analytics
+                    analyticsService?.sendUserAction(
+                        action = "graceful_kill_servers_from_dialog",
+                        category = "server_error",
+                        label = "Connection error recovery with graceful shutdown"
+                    )
+                    
+                } catch (e: Exception) {
+                    logger.error(e) { "Error during server cleanup from dialog" }
+                    throw e
                 }
             },
             analyticsService = analyticsService
