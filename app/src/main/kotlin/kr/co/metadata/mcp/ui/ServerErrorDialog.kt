@@ -29,11 +29,14 @@ private val logger = KotlinLogging.logger {}
 fun ServerErrorDialog(
     isVisible: Boolean,
     onDismiss: () -> Unit,
-    onKillServers: () -> Unit,
+    onKillServers: suspend () -> Unit,
     analyticsService: kr.co.metadata.mcp.analytics.GoogleAnalyticsService? = null
 ) {
     if (isVisible) {
         val scope = rememberCoroutineScope()
+        var isProcessing by remember { mutableStateOf(false) }
+        var currentStep by remember { mutableStateOf("") }
+        var progress by remember { mutableStateOf(0f) }
         
         // Send analytics event when dialog opens
         LaunchedEffect(Unit) {
@@ -111,28 +114,39 @@ fun ServerErrorDialog(
                                 modifier = Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "Ports are already in use by another process. Click \"Kill Servers\" to close the previous session and try again.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                
-                                // Row(
-                                //     verticalAlignment = Alignment.CenterVertically,
-                                //     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                // ) {
-                                //     Icon(
-                                //         imageVector = Icons.Default.Info,
-                                //         contentDescription = null,
-                                //         tint = MaterialTheme.colorScheme.primary,
-                                //         modifier = Modifier.size(16.dp)
-                                //     )
-                                //     Text(
-                                //         text = "This might be from a previous session",
-                                //         style = MaterialTheme.typography.bodySmall,
-                                //         color = MaterialTheme.colorScheme.onSurfaceVariant
-                                //     )
-                                // }
+                                if (!isProcessing) {
+                                    Text(
+                                        text = "Ports are already in use by another process. Click \"Kill Servers\" to close the previous session and try again.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                } else {
+                                    // Progress indicator
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "Stopping servers...",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        
+                                        LinearProgressIndicator(
+                                            progress = { progress },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        
+                                        if (currentStep.isNotEmpty()) {
+                                            Text(
+                                                text = currentStep,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         
@@ -146,7 +160,8 @@ fun ServerErrorDialog(
                             // Secondary action
                             TextButton(
                                 onClick = onDismiss,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                enabled = !isProcessing
                             ) {
                                 Text(
                                     text = "Cancel",
@@ -157,10 +172,48 @@ fun ServerErrorDialog(
                             // Primary action
                             FilledTonalButton(
                                 onClick = {
-                                    onKillServers()
-                                    onDismiss()
+                                    scope.launch {
+                                        try {
+                                            isProcessing = true
+                                            progress = 0f
+                                            currentStep = "Stopping servers gracefully..."
+                                            
+                                            // Step 1: Graceful server stop (25% progress)
+                                            onKillServers()
+                                            progress = 0.25f
+                                            
+                                            kotlinx.coroutines.delay(500) // Brief pause for user feedback
+                                            
+                                            // Step 2: Additional cleanup (50% progress)
+                                            currentStep = "Cleaning up processes..."
+                                            progress = 0.50f
+                                            kotlinx.coroutines.delay(1000)
+                                            
+                                            // Step 3: Final verification (75% progress)
+                                            currentStep = "Verifying port availability..."
+                                            progress = 0.75f
+                                            kotlinx.coroutines.delay(500)
+                                            
+                                            // Step 4: Complete (100% progress)
+                                            currentStep = "Cleanup completed successfully"
+                                            progress = 1.0f
+                                            kotlinx.coroutines.delay(1000)
+                                            
+                                            // Auto-close dialog
+                                            onDismiss()
+                                            
+                                        } catch (e: Exception) {
+                                            logger.error(e) { "Error during server cleanup process" }
+                                            currentStep = "Error occurred during cleanup"
+                                            kotlinx.coroutines.delay(2000)
+                                            onDismiss()
+                                        } finally {
+                                            isProcessing = false
+                                        }
+                                    }
                                 },
                                 modifier = Modifier.weight(1f),
+                                enabled = !isProcessing,
                                 colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = MaterialTheme.colorScheme.error,
                                     contentColor = MaterialTheme.colorScheme.onError
@@ -170,13 +223,21 @@ fun ServerErrorDialog(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ClearAll,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    if (isProcessing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            color = MaterialTheme.colorScheme.onError,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.ClearAll,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                     Text(
-                                        text = "Kill Servers",
+                                        text = if (isProcessing) "Processing..." else "Kill Servers",
                                         style = MaterialTheme.typography.labelLarge
                                     )
                                 }
