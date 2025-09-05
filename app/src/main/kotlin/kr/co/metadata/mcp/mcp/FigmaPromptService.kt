@@ -21,7 +21,8 @@ object FigmaPromptService {
         registerTextReplacementStrategyPrompt(server)
         registerAnnotationConversionStrategyPrompt(server)
         registerSwapOverridesInstancesPrompt(server)
-        registerReactionToConnectorStrategyPrompt(server)
+        // NOTE: Reaction to connector strategy disabled due to Figma API deprecation
+        // registerReactionToConnectorStrategyPrompt(server)
         
         logger.info { "Figma prompt service registered successfully" }
     }
@@ -530,6 +531,10 @@ This strategy enables transferring content and property overrides from a source 
         }
     }
 
+    // NOTE: Reaction to connector strategy disabled due to Figma API deprecation
+    // Figma has officially blocked the FigJam Connector API
+
+    /*
     /**
      * Reaction to Connector Strategy Prompt - Strategy for converting Figma prototype reactions to connector lines
      */
@@ -622,4 +627,5 @@ This detailed process ensures you correctly interpret the reaction data, prepare
             )
         }
     }
+    */
 } 
