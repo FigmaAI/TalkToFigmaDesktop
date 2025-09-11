@@ -35,6 +35,9 @@ class GoogleAnalyticsService {
 
     // Get app version dynamically
     private val appVersion = getAppVersion()
+    
+    // Get bundle ID from system properties or default
+    private val bundleId = getBundleId()
 
     // Get system timezone
     private val timeZone = TimeZone.getDefault().id
@@ -206,6 +209,7 @@ class GoogleAnalyticsService {
              val userPropsJson =
                      """
                "app_version": { "value": "$appVersion" },
+               "bundle_id": { "value": "$bundleId" },
                "java_version": { "value": "$javaVersion" },
                "platform": { "value": "desktop" },
                "os_name": { "value": "${mapOperatingSystemName(osName)}" },
@@ -355,5 +359,13 @@ class GoogleAnalyticsService {
             name.contains("linux") || name.contains("nux") || name.contains("nix") -> "Linux"
             else -> null
         }
+    }
+    
+    /** Get bundle ID from system properties or default value */
+    private fun getBundleId(): String {
+        // Try to get from system properties first (might be set by build process)
+        return System.getProperty("app.bundle.id") 
+            ?: System.getProperty("java.application.name")
+            ?: "kr.co.metadata.mcp.talktofigma" // Default bundle ID
     }
 }
