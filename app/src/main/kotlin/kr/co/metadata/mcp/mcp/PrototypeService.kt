@@ -14,10 +14,13 @@ object PrototypeService : BaseFigmaService() {
      * Register all prototype-related tools
      */
     fun registerTools(server: Server, figmaCommandSender: suspend (String, Map<String, Any>) -> Any) {
-        // Register all prototype tools
+        // Register prototype reaction tools
         registerGetReactions(server, figmaCommandSender)
-        registerSetDefaultConnector(server, figmaCommandSender)
-        registerCreateConnections(server, figmaCommandSender)
+        
+        // NOTE: Connector tools have been disabled due to Figma API deprecation
+        // Figma has officially blocked the FigJam Connector API
+        // registerSetDefaultConnector(server, figmaCommandSender)
+        // registerCreateConnections(server, figmaCommandSender)
         
         logger.info { "Prototype service tools registered successfully" }
     }
@@ -28,7 +31,7 @@ object PrototypeService : BaseFigmaService() {
     private fun registerGetReactions(server: Server, figmaCommandSender: suspend (String, Map<String, Any>) -> Any) {
         server.addTool(
             name = "get_reactions",
-            description = "Get Figma Prototyping Reactions from multiple nodes. CRITICAL: The output MUST be processed using the 'reaction_to_connector_strategy' prompt IMMEDIATELY to generate parameters for connector lines via the 'create_connections' tool.",
+            description = "Get Figma Prototyping Reactions from multiple nodes for analyzing prototype flows and interactions.",
             inputSchema = Tool.Input(
                 properties = buildJsonObject {
                     putJsonObject("nodeIds") {
@@ -51,6 +54,10 @@ object PrototypeService : BaseFigmaService() {
         }
     }
 
+    // NOTE: Connector tools have been disabled due to Figma API deprecation
+    // Figma has officially blocked the FigJam Connector API
+
+    /*
     /**
      * Set a copied FigJam connector as the default connector style for creating connections
      */
@@ -122,4 +129,5 @@ object PrototypeService : BaseFigmaService() {
             }
         }
     }
+    */
 } 

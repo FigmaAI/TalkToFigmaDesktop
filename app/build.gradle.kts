@@ -73,8 +73,8 @@ dependencies {
     
     // JSON support for analytics
     implementation("org.json:json:20231013")
-    
-    // Skiko for WebP animation support
+        // Skiko for WebP animation support - both ARM64 and Intel
+    implementation("org.jetbrains.skiko:skiko-awt-runtime-macos-arm64:0.8.4")
     implementation("org.jetbrains.skiko:skiko-awt-runtime-macos-x64:0.8.4")
     implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.8.4")
 
